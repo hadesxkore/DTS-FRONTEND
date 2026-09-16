@@ -133,6 +133,12 @@ type ApiDocument = {
   obrEnabled?: boolean
   prNo?: string
   obrNo?: string
+  supplier?: string
+  supplierAddress?: string
+  address?: string
+  poNo?: string
+  poDate?: string
+  poItems?: Array<any>
   logs?: Array<{ label?: string; color?: string; byOffice?: string; byUser?: string; createdAt?: string | number | Date }>
   createdAt?: string
   subDocuments?: Array<{
