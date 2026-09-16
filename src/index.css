@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* Hide browser default password reveal / clear buttons (e.g. MS Edge) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    .print-no-mt {
+      margin-top: 0 !important;
+    }
+    .print-no-p {
+      padding: 0 !important;
+    }
+    .print-no-mb {
+      margin-bottom: 0 !important;
+    }
+    .print-no-space {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+  }
+
+ .no-scrollbar {
+   -ms-overflow-style: none;
+   scrollbar-width: none;
+ }
+
+ .no-scrollbar::-webkit-scrollbar {
+   display: none;
+ }
+
+ @media print {
+  @page {
+    /* Short Bond Paper: 8.5in x 11in (Letter / US Short Bond) */
+    size: 8.5in 11in;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: static !important;
+    inset: auto;
+    margin: 0;
+    padding: 0;
+    background: white;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: none !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block;
+  }
+
+  .print-area.print-no-space {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-area .print-page {
+    width: 8.5in !important;
+    height: 11in !important;
+    max-width: 8.5in !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: always;
+    break-after: page;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-area .print-page.hidden {
+    display: block !important;
+  }
+
+  .print-area .pr-pages-wrapper {
+    display: block !important;
+  }
+
+  .print-area .pr-pages-wrapper > .print-page {
+    display: block !important;
+  }
+
+  .print-area .print-page * {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-area .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .print-area .pr-table {
+    min-height: 0 !important;
+  }
+ }
