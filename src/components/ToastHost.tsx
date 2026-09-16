@@ -90,8 +90,10 @@ export default function ToastHost() {
   }
 
   async function handleEnableNotifications() {
-    await requestNotificationPermission()
-    setShowPermissionPrompt(false)
+    const res = await requestNotificationPermission()
+    if (res === 'granted' || res === 'denied') {
+      setShowPermissionPrompt(false)
+    }
   }
 
   function handleDismissPermission() {
@@ -100,7 +102,7 @@ export default function ToastHost() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-100 flex w-full max-w-sm flex-col gap-2">
+    <div className="pointer-events-none fixed right-4 top-4 z-[9999] flex w-full max-w-sm flex-col gap-2">
       {/* Desktop Notification Permission Prompt Banner */}
       {showPermissionPrompt && (
         <div className="pointer-events-auto flex flex-col gap-2.5 rounded-2xl border border-blue-200 bg-linear-to-br from-blue-500 to-indigo-600 p-4 text-white shadow-xl animate-in fade-in slide-in-from-top-3">

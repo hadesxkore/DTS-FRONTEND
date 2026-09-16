@@ -56,15 +56,42 @@ export function getNotificationPermission(): NotificationPermission {
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (!isDesktopNotificationSupported()) return 'denied';
+  if (!isDesktopNotificationSupported()) {
+    toast.error('Desktop notifications are not supported by this browser.');
+    return 'denied';
+  }
+
+  // If already denied by browser site settings, guide user on how to unblock
+  if (Notification.permission === 'denied') {
+    toast.error(
+      'Notifications are currently blocked by your browser settings. Click the lock/tune icon next to the URL in your address bar to Allow notifications.',
+      8000
+    );
+    return 'denied';
+  }
+
   try {
-    // Unlock audio context on permission click gesture
+    // Unlock AudioContext asynchronously without blocking the user gesture
     const ctx = getAudioContext();
     if (ctx && ctx.state === 'suspended') {
-      await ctx.resume();
+      void ctx.resume();
     }
 
-    const permission = await Notification.requestPermission();
+    // Call Notification.requestPermission() immediately to preserve user-gesture activation
+    let permission: NotificationPermission;
+    if (typeof Notification.requestPermission === 'function') {
+      const res = Notification.requestPermission((p) => {
+        permission = p;
+      });
+      if (res && typeof (res as unknown as Promise<NotificationPermission>).then === 'function') {
+        permission = await res;
+      } else {
+        permission = Notification.permission;
+      }
+    } else {
+      permission = Notification.permission;
+    }
+
     if (permission === 'granted') {
       playNotificationSound();
       showDesktopNotification({
@@ -74,7 +101,10 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
       });
       toast.success('Desktop notifications enabled successfully!');
     } else if (permission === 'denied') {
-      toast.error('Notification permission was blocked. Please enable it in your browser settings.');
+      toast.error(
+        'Notification permission was blocked. Click the lock/tune icon next to the URL in your address bar to Allow notifications.',
+        8000
+      );
     }
     return permission;
   } catch (err) {
