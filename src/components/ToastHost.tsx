@@ -20,17 +20,33 @@ export default function ToastHost() {
   const [items, setItems] = useState<ToastItem[]>([])
   const timeoutsRef = useRef<Record<string, number>>({})
   const dedupRef = useRef<Map<string, number>>(new Map())
-  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false)
 
   useEffect(() => {
-    // Check if permission is still default (not yet prompted by user click)
-    if (isDesktopNotificationSupported()) {
-      const dismissed = sessionStorage.getItem("notif_prompt_dismissed")
-      if (getNotificationPermission() === "default" && !dismissed) {
-        setShowPermissionPrompt(true)
+    // ── Auto-trigger Native Browser Notification Prompt ───────────────────
+    if (isDesktopNotificationSupported() && getNotificationPermission() === "default") {
+      // Attempt immediate prompt on load
+      void requestNotificationPermission()
+
+      // Also attach event listeners so the native prompt triggers on the very first user interaction
+      const triggerNativePrompt = () => {
+        if (getNotificationPermission() === "default") {
+          void requestNotificationPermission()
+        }
+      }
+
+      window.addEventListener("click", triggerNativePrompt, { once: true })
+      window.addEventListener("keydown", triggerNativePrompt, { once: true })
+      window.addEventListener("focusin", triggerNativePrompt, { once: true })
+
+      return () => {
+        window.removeEventListener("click", triggerNativePrompt)
+        window.removeEventListener("keydown", triggerNativePrompt)
+        window.removeEventListener("focusin", triggerNativePrompt)
       }
     }
+  }, [])
 
+  useEffect(() => {
     function onToast(e: Event) {
       const ce = e as CustomEvent<{ message: string; variant: ToastItem["variant"]; durationMs?: number }>
       const detail = ce.detail
@@ -89,58 +105,8 @@ export default function ToastHost() {
     setItems((prev) => prev.filter((x) => x.id !== id))
   }
 
-  async function handleEnableNotifications() {
-    const res = await requestNotificationPermission()
-    if (res === 'granted' || res === 'denied') {
-      setShowPermissionPrompt(false)
-    }
-  }
-
-  function handleDismissPermission() {
-    sessionStorage.setItem("notif_prompt_dismissed", "true")
-    setShowPermissionPrompt(false)
-  }
-
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-[9999] flex w-full max-w-sm flex-col gap-2">
-      {/* Desktop Notification Permission Prompt Banner */}
-      {showPermissionPrompt && (
-        <div className="pointer-events-auto flex flex-col gap-2.5 rounded-2xl border border-blue-200 bg-linear-to-br from-blue-500 to-indigo-600 p-4 text-white shadow-xl animate-in fade-in slide-in-from-top-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🔔</span>
-              <h4 className="text-sm font-semibold tracking-tight">Enable Desktop Notifications</h4>
-            </div>
-            <button
-              type="button"
-              onClick={handleDismissPermission}
-              className="inline-flex size-6 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition"
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-xs text-blue-100 leading-relaxed">
-            Get instant desktop sound alerts when new requests are submitted, updated, or returned.
-          </p>
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={handleEnableNotifications}
-              className="flex-1 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 active:scale-95"
-            >
-              Enable Notifications
-            </button>
-            <button
-              type="button"
-              onClick={handleDismissPermission}
-              className="rounded-xl px-2.5 py-1.5 text-xs font-medium text-blue-200 hover:text-white transition"
-            >
-              Later
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Toast Items */}
       {items.map((t) => {
