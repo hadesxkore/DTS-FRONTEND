@@ -1,12 +1,14 @@
 /**
  * useScheduleGuard
  *
- * Polls the backend schedule + special dates every minute.
- * - Holidays (no from/to): auto-logout immediately
- * - Half-days / special hours: auto-logout once time passes the "to" window
- * - Normal days: auto-logout outside the configured working hours
+ * 1. Fetches schedule + special dates on mount.
+ * 2. Immediately checks if the user is allowed. If not → logout now.
+ * 3. If allowed, calculates the EXACT ms until the schedule window closes
+ *    and sets a precise setTimeout → fires and logs the user out right on time.
+ * 4. Also keeps a 60-second fallback interval (handles edge cases like day
+ *    rollover, schedule changes mid-session, network failures, etc.).
  *
- * Admins are never auto-logged-out.
+ * Admins (admin / superadmin) are never auto-logged-out.
  */
 import { useEffect, useRef } from 'react'
 import { toast } from '../lib/toast'
@@ -80,36 +82,59 @@ function findSpecialToday(specialDates: SpecialDate[], todayFull: string, todayM
   })
 }
 
-/** Returns true if the user should currently be allowed in */
-function isAllowed(schedule: Schedule, specialDates: SpecialDate[]): boolean {
+/**
+ * Returns:
+ *  - allowed: whether the user is currently in-session
+ *  - msUntilEnd: milliseconds until the session window closes (null if not determinable)
+ */
+function evaluateSchedule(
+  schedule: Schedule,
+  specialDates: SpecialDate[]
+): { allowed: boolean; msUntilEnd: number | null } {
   const { dayKey, currentMinutes, todayFull, todayMmDd } = getNowParts()
+  const nowMs = Date.now()
 
   const specialToday = findSpecialToday(specialDates, todayFull, todayMmDd)
 
   if (specialToday) {
     // Holiday — no working hours at all
-    if (!specialToday.from || !specialToday.to) return false
-    // Special hours window
+    if (!specialToday.from || !specialToday.to) return { allowed: false, msUntilEnd: null }
+
     const specFromMins = parseTimeToMinutes(specialToday.from, false)
     const specToMins = parseTimeToMinutes(specialToday.to, true, specFromMins ?? 0)
+
     if (specFromMins !== null && specToMins !== null) {
-      return currentMinutes >= specFromMins && currentMinutes < specToMins
+      const allowed = currentMinutes >= specFromMins && currentMinutes < specToMins
+      if (!allowed) return { allowed: false, msUntilEnd: null }
+
+      // Calculate precise ms until end
+      const endTime = new Date()
+      endTime.setHours(Math.floor(specToMins / 60), specToMins % 60, 0, 0)
+      const msUntilEnd = endTime.getTime() - nowMs
+      return { allowed: true, msUntilEnd: Math.max(msUntilEnd, 0) }
     }
-    return false
+    return { allowed: false, msUntilEnd: null }
   }
 
   // Normal schedule
   const sched = schedule[dayKey]
-  if (!sched?.enabled) return false
+  if (!sched?.enabled) return { allowed: false, msUntilEnd: null }
 
   const fromMins = parseTimeToMinutes(sched.from, false)
   const toMins = parseTimeToMinutes(sched.to, true, fromMins ?? 0)
 
   if (fromMins !== null && toMins !== null) {
-    return currentMinutes >= fromMins && currentMinutes < toMins
+    const allowed = currentMinutes >= fromMins && currentMinutes < toMins
+    if (!allowed) return { allowed: false, msUntilEnd: null }
+
+    // Calculate precise ms until the schedule "to" time
+    const endTime = new Date()
+    endTime.setHours(Math.floor(toMins / 60), toMins % 60, 0, 0)
+    const msUntilEnd = endTime.getTime() - nowMs
+    return { allowed: true, msUntilEnd: Math.max(msUntilEnd, 0) }
   }
 
-  return true
+  return { allowed: true, msUntilEnd: null }
 }
 
 async function fetchSettings(): Promise<{ schedule: Schedule | null; specialDates: SpecialDate[] }> {
@@ -135,33 +160,62 @@ export function useScheduleGuard(role: string | undefined, onLogout: () => void)
     onLogoutRef.current = onLogout
   }, [onLogout])
 
+  // Holds the precise end-time setTimeout handle so we can clear it on re-runs
+  const preciseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     // Admins are exempt
     if (!role || role === 'admin' || role === 'superadmin') return
 
     let cancelled = false
 
+    function forceLogout() {
+      if (cancelled) return
+      toast.error('Your session has ended because office hours are over. You have been logged out.')
+      onLogoutRef.current()
+    }
+
     async function check() {
       if (cancelled) return
+
       const { schedule, specialDates } = await fetchSettings()
       if (cancelled) return
 
       // If we can't reach the API, do nothing (fail-open)
       if (!schedule) return
 
-      if (!isAllowed(schedule, specialDates)) {
-        toast.error('Your session has ended because office hours are over. You have been logged out.')
-        onLogoutRef.current()
+      const { allowed, msUntilEnd } = evaluateSchedule(schedule, specialDates)
+
+      if (!allowed) {
+        forceLogout()
+        return
+      }
+
+      // ✅ User is in session — set a PRECISE timer to fire exactly when the window closes
+      if (preciseTimerRef.current) {
+        clearTimeout(preciseTimerRef.current)
+        preciseTimerRef.current = null
+      }
+
+      if (msUntilEnd !== null && msUntilEnd > 0) {
+        // Add a 1-second buffer so the "to" minute has definitively passed
+        preciseTimerRef.current = setTimeout(() => {
+          if (!cancelled) forceLogout()
+        }, msUntilEnd + 1000)
       }
     }
 
-    // Check immediately on mount, then every 60 seconds
+    // Check immediately on mount, then every 60 seconds as a fallback
     check()
     const interval = setInterval(check, 60_000)
 
     return () => {
       cancelled = true
       clearInterval(interval)
+      if (preciseTimerRef.current) {
+        clearTimeout(preciseTimerRef.current)
+        preciseTimerRef.current = null
+      }
     }
   }, [role])
 }
