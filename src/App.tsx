@@ -87,7 +87,6 @@ function App() {
       <ToastHost />
       <LoginPage
         onLoginSuccess={({ username, role, token, fullName, office }) => {
-          console.log('Logged in as:', username, 'Role:', role)
           const userData = { username, role, token, fullName, office }
           setUser(userData)
         }}
