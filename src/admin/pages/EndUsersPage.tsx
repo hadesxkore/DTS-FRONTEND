@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { Trash2 } from "lucide-react"
 import { toast } from "../../lib/toast"
 
 type UserStatus = "active" | "archived"
@@ -60,9 +61,37 @@ export default function EndUsersPage({ title = "End Users" }: EndUsersPageProps)
 
   const [isNewUserOpen, setIsNewUserOpen] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState<EndUserRow | null>(null)
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<EndUserRow | null>(null)
   const [editUserRow, setEditUserRow] = useState<EndUserRow | null>(null)
   const [editUser, setEditUser] = useState<EndUserEditModel | null>(null)
   const [editUserError, setEditUserError] = useState<string | null>(null)
+
+  async function confirmDeleteUser() {
+    if (!deleteConfirmUser) return
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/endusers/${deleteConfirmUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const msg = await response.text().catch(() => '')
+        throw new Error(msg || 'Failed to delete user')
+      }
+
+      await fetchUsers()
+      setDeleteConfirmUser(null)
+      toast.success('User account deleted successfully.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete user')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const [newUser, setNewUser] = useState<NewUserFormModel>({
     office: "",
@@ -501,6 +530,14 @@ export default function EndUsersPage({ title = "End Users" }: EndUsersPageProps)
                           >
                             Reset Password
                           </button>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 items-center justify-center rounded-md bg-rose-700 px-3 text-xs font-semibold text-white transition hover:bg-rose-800 focus:outline-none focus-visible:outline-none"
+                            onClick={() => setDeleteConfirmUser(r)}
+                          >
+                            <Trash2 className="size-3.5 mr-1" />
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -847,6 +884,46 @@ export default function EndUsersPage({ title = "End Users" }: EndUsersPageProps)
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmUser ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.currentTarget === e.target) {
+              setDeleteConfirmUser(null)
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <div className="text-sm font-semibold text-slate-900">Delete End User Account</div>
+            </div>
+            <div className="px-4 py-4 text-sm text-slate-700">
+              Are you sure you want to permanently delete user account <span className="font-semibold">"{deleteConfirmUser.fullName}" (@{deleteConfirmUser.username})</span>? This user will no longer be able to log in.
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmUser(null)}
+                className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus:outline-none focus-visible:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteUser}
+                disabled={loading}
+                className="inline-flex h-9 items-center justify-center rounded bg-rose-600 px-4 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none"
+              >
+                Delete User
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
