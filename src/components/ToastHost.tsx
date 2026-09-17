@@ -5,11 +5,14 @@ import {
   getNotificationPermission,
   requestNotificationPermission,
 } from "../lib/desktopNotification"
+import { CheckCircle2, AlertCircle, Info, X, Bell } from "lucide-react"
 
 type ToastItem = {
   id: string
   message: string
   variant: "success" | "error" | "info"
+  durationMs: number
+  createdAt: number
 }
 
 function uid() {
@@ -24,10 +27,8 @@ export default function ToastHost() {
   useEffect(() => {
     // ── Auto-trigger Native Browser Notification Prompt ───────────────────
     if (isDesktopNotificationSupported() && getNotificationPermission() === "default") {
-      // Attempt immediate prompt on load
       void requestNotificationPermission()
 
-      // Also attach event listeners so the native prompt triggers on the very first user interaction
       const triggerNativePrompt = () => {
         if (getNotificationPermission() === "default") {
           void requestNotificationPermission()
@@ -53,27 +54,25 @@ export default function ToastHost() {
       if (!detail?.message) return
 
       // ── Deduplication ──────────────────────────────────────────────────────
-      // Multiple page components can each have their own socket connection and
-      // independently fire toast() for the same event. Suppress identical
-      // message+variant combinations that arrive within a 2-second window.
       const dedupKey = `${detail.variant}::${detail.message}`
       const DEDUP_MS = 2000
       const lastSeen = dedupRef.current.get(dedupKey)
       if (lastSeen && Date.now() - lastSeen < DEDUP_MS) return
       dedupRef.current.set(dedupKey, Date.now())
-      // Clean up old dedup entries every time we add one
+
       for (const [k, ts] of dedupRef.current.entries()) {
         if (Date.now() - ts > DEDUP_MS * 3) dedupRef.current.delete(k)
       }
-      // ───────────────────────────────────────────────────────────────────────
 
       const id = uid()
-      const duration = typeof detail.durationMs === "number" ? detail.durationMs : 4000
+      const duration = typeof detail.durationMs === "number" ? detail.durationMs : 4500
 
       const next: ToastItem = {
         id,
         message: detail.message,
         variant: detail.variant,
+        durationMs: duration,
+        createdAt: Date.now(),
       }
 
       setItems((prev) => [...prev, next].slice(-5))
@@ -106,37 +105,103 @@ export default function ToastHost() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[9999] flex w-full max-w-sm flex-col gap-2">
-
-      {/* Toast Items */}
+    <div className="pointer-events-none fixed right-4 top-4 z-[9999] flex w-full max-w-sm flex-col gap-2.5 sm:right-6 sm:top-6">
       {items.map((t) => {
-        const variantClass =
-          t.variant === "success"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-            : t.variant === "error"
-              ? "border-rose-200 bg-rose-50 text-rose-900"
-              : "border-slate-200 bg-white text-slate-900"
+        const isSuccess = t.variant === "success"
+        const isError = t.variant === "error"
 
-        const icon = t.variant === "success" ? "✓" : t.variant === "error" ? "!" : "i"
+        const badgeColor = isSuccess
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+          : isError
+            ? "bg-rose-50 text-rose-700 ring-rose-600/20"
+            : "bg-blue-50 text-blue-700 ring-blue-600/20"
+
+        const iconBg = isSuccess
+          ? "bg-emerald-500/10 text-emerald-600 ring-emerald-500/20"
+          : isError
+            ? "bg-rose-500/10 text-rose-600 ring-rose-500/20"
+            : "bg-blue-500/10 text-blue-600 ring-blue-500/20"
+
+        const progressBg = isSuccess
+          ? "bg-emerald-500"
+          : isError
+            ? "bg-rose-500"
+            : "bg-blue-500"
+
+        const badgeText = isSuccess ? "Success" : isError ? "System Alert" : "Notification"
+
+        // Split message if it contains '•' dividers for clean formatted layout
+        const parts = t.message.split(/\s*•\s*/).filter(Boolean)
 
         return (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg ${variantClass}`}
+            className="pointer-events-auto group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-xl shadow-slate-900/10 backdrop-blur-xl transition-all duration-300 animate-toast-in"
             role="status"
           >
-            <div className="grid size-7 flex-none place-items-center rounded-full border border-current/20">
-              <span className="text-sm font-bold leading-none">{icon}</span>
+            <div className="flex items-start gap-3.5">
+              {/* Icon Container */}
+              <div
+                className={`flex size-9 shrink-0 items-center justify-center rounded-xl ring-1 transition-transform group-hover:scale-105 ${iconBg}`}
+              >
+                {isSuccess ? (
+                  <CheckCircle2 className="size-5" />
+                ) : isError ? (
+                  <AlertCircle className="size-5" />
+                ) : (
+                  <Bell className="size-5" />
+                )}
+              </div>
+
+              {/* Message Details */}
+              <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset ${badgeColor}`}
+                  >
+                    {badgeText}
+                  </span>
+                </div>
+
+                {parts.length > 1 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold tracking-tight text-slate-900">{parts[0]}</p>
+                    <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-600">
+                      {parts.slice(1).map((part, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center rounded-md bg-slate-100/80 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                        >
+                          {part}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs font-semibold leading-relaxed text-slate-800">{t.message}</p>
+                )}
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => dismiss(t.id)}
+                className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
+                aria-label="Dismiss notification"
+              >
+                <X className="size-4" />
+              </button>
             </div>
-            <div className="min-w-0 flex-1 text-sm leading-snug">{t.message}</div>
-            <button
-              type="button"
-              onClick={() => dismiss(t.id)}
-              className="-mr-1 -mt-1 inline-flex size-7 items-center justify-center rounded-md text-current/70 transition hover:bg-black/5 hover:text-current"
-              aria-label="Dismiss"
-            >
-              ×
-            </button>
+
+            {/* Bottom Progress Timer Line */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100">
+              <div
+                className={`h-full ${progressBg} transition-all duration-100 ease-linear`}
+                style={{
+                  animation: `toast-progress ${t.durationMs}ms linear forwards`,
+                }}
+              />
+            </div>
           </div>
         )
       })}
