@@ -1,14 +1,13 @@
 /**
  * useScheduleGuard
  *
- * 1. Fetches schedule + special dates on mount.
+ * 1. Fetches schedule + special dates on mount using Asia/Manila timezone.
  * 2. Immediately checks if the user is allowed. If not → logout now.
- * 3. If allowed, calculates the EXACT ms until the schedule window closes
+ * 3. If allowed, calculates the EXACT ms until the schedule window closes in Asia/Manila time
  *    and sets a precise setTimeout → fires and logs the user out right on time.
- * 4. Also keeps a 60-second fallback interval (handles edge cases like day
- *    rollover, schedule changes mid-session, network failures, etc.).
+ * 4. Polls every 10 seconds as a fallback.
  *
- * Admins (admin / superadmin) are never auto-logged-out.
+ * Admins (admin / superadmin) are exempt from schedule logout.
  */
 import { useEffect, useRef } from 'react'
 import { toast } from '../lib/toast'
@@ -30,18 +29,43 @@ type SpecialDate = {
   section: 'recurrent' | 'non-recurrent'
 }
 
-const DAYS: WeekdayKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-
-function getNowParts() {
+function getPhilippineNowParts() {
   const now = new Date()
-  const dayKey = DAYS[now.getDay()]
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-  const yyyy = now.getFullYear()
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    weekday: 'long',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+
+  const parts = formatter.formatToParts(now)
+  const map: Record<string, string> = {}
+  for (const p of parts) {
+    if (p.type !== 'literal') map[p.type] = p.value
+  }
+
+  const dayKey = String(map.weekday || '').toLowerCase() as WeekdayKey
+
+  let hour = parseInt(map.hour, 10)
+  if (hour === 24) hour = 0
+  const minute = parseInt(map.minute, 10)
+  const second = parseInt(map.second, 10)
+
+  const currentMinutes = hour * 60 + minute
+  const currentSecondsInDay = hour * 3600 + minute * 60 + second
+
+  const yyyy = map.year
+  const mm = map.month
+  const dd = map.day
   const todayFull = `${yyyy}-${mm}-${dd}`
   const todayMmDd = `${mm}-${dd}`
-  return { dayKey, currentMinutes, todayFull, todayMmDd }
+
+  return { dayKey, hour, minute, second, currentMinutes, currentSecondsInDay, todayFull, todayMmDd }
 }
 
 function parseTimeToMinutes(rawStr: string | null | undefined, isEndTime = false, referenceFromMinutes = 0): number | null {
@@ -82,22 +106,15 @@ function findSpecialToday(specialDates: SpecialDate[], todayFull: string, todayM
   })
 }
 
-/**
- * Returns:
- *  - allowed: whether the user is currently in-session
- *  - msUntilEnd: milliseconds until the session window closes (null if not determinable)
- */
 function evaluateSchedule(
   schedule: Schedule,
   specialDates: SpecialDate[]
 ): { allowed: boolean; msUntilEnd: number | null } {
-  const { dayKey, currentMinutes, todayFull, todayMmDd } = getNowParts()
-  const nowMs = Date.now()
+  const { dayKey, currentMinutes, currentSecondsInDay, todayFull, todayMmDd } = getPhilippineNowParts()
 
   const specialToday = findSpecialToday(specialDates, todayFull, todayMmDd)
 
   if (specialToday) {
-    // Holiday — no working hours at all
     if (!specialToday.from || !specialToday.to) return { allowed: false, msUntilEnd: null }
 
     const specFromMins = parseTimeToMinutes(specialToday.from, false)
@@ -107,11 +124,9 @@ function evaluateSchedule(
       const allowed = currentMinutes >= specFromMins && currentMinutes < specToMins
       if (!allowed) return { allowed: false, msUntilEnd: null }
 
-      // Calculate precise ms until end
-      const endTime = new Date()
-      endTime.setHours(Math.floor(specToMins / 60), specToMins % 60, 0, 0)
-      const msUntilEnd = endTime.getTime() - nowMs
-      return { allowed: true, msUntilEnd: Math.max(msUntilEnd, 0) }
+      const endSecondsInDay = specToMins * 60
+      const secondsRemaining = endSecondsInDay - currentSecondsInDay
+      return { allowed: true, msUntilEnd: Math.max(secondsRemaining * 1000, 0) }
     }
     return { allowed: false, msUntilEnd: null }
   }
@@ -127,11 +142,9 @@ function evaluateSchedule(
     const allowed = currentMinutes >= fromMins && currentMinutes < toMins
     if (!allowed) return { allowed: false, msUntilEnd: null }
 
-    // Calculate precise ms until the schedule "to" time
-    const endTime = new Date()
-    endTime.setHours(Math.floor(toMins / 60), toMins % 60, 0, 0)
-    const msUntilEnd = endTime.getTime() - nowMs
-    return { allowed: true, msUntilEnd: Math.max(msUntilEnd, 0) }
+    const endSecondsInDay = toMins * 60
+    const secondsRemaining = endSecondsInDay - currentSecondsInDay
+    return { allowed: true, msUntilEnd: Math.max(secondsRemaining * 1000, 0) }
   }
 
   return { allowed: true, msUntilEnd: null }
@@ -139,9 +152,10 @@ function evaluateSchedule(
 
 async function fetchSettings(): Promise<{ schedule: Schedule | null; specialDates: SpecialDate[] }> {
   try {
+    const timestamp = Date.now()
     const [schedRes, specialRes] = await Promise.all([
-      fetch(`${API_URL}/settings/schedule`),
-      fetch(`${API_URL}/settings/special-dates`),
+      fetch(`${API_URL}/settings/schedule?_t=${timestamp}`, { cache: 'no-store' }),
+      fetch(`${API_URL}/settings/special-dates?_t=${timestamp}`, { cache: 'no-store' }),
     ])
     const schedData = schedRes.ok ? await schedRes.json() : null
     const specialData = specialRes.ok ? await specialRes.json() : null
@@ -160,12 +174,12 @@ export function useScheduleGuard(role: string | undefined, onLogout: () => void)
     onLogoutRef.current = onLogout
   }, [onLogout])
 
-  // Holds the precise end-time setTimeout handle so we can clear it on re-runs
   const preciseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Admins are exempt
-    if (!role || role === 'admin' || role === 'superadmin') return
+    const normalizedRole = String(role || '').trim().toLowerCase()
+    // Admins and Superadmins are exempt from schedule logout
+    if (!normalizedRole || normalizedRole === 'admin' || normalizedRole === 'superadmin') return
 
     let cancelled = false
 
@@ -181,7 +195,6 @@ export function useScheduleGuard(role: string | undefined, onLogout: () => void)
       const { schedule, specialDates } = await fetchSettings()
       if (cancelled) return
 
-      // If we can't reach the API, do nothing (fail-open)
       if (!schedule) return
 
       const { allowed, msUntilEnd } = evaluateSchedule(schedule, specialDates)
@@ -191,23 +204,20 @@ export function useScheduleGuard(role: string | undefined, onLogout: () => void)
         return
       }
 
-      // ✅ User is in session — set a PRECISE timer to fire exactly when the window closes
       if (preciseTimerRef.current) {
         clearTimeout(preciseTimerRef.current)
         preciseTimerRef.current = null
       }
 
       if (msUntilEnd !== null && msUntilEnd > 0) {
-        // Add a 1-second buffer so the "to" minute has definitively passed
         preciseTimerRef.current = setTimeout(() => {
           if (!cancelled) forceLogout()
-        }, msUntilEnd + 1000)
+        }, msUntilEnd + 500)
       }
     }
 
-    // Check immediately on mount, then every 60 seconds as a fallback
     check()
-    const interval = setInterval(check, 60_000)
+    const interval = setInterval(check, 10_000)
 
     return () => {
       cancelled = true
@@ -219,4 +229,3 @@ export function useScheduleGuard(role: string | undefined, onLogout: () => void)
     }
   }, [role])
 }
-
