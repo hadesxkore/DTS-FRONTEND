@@ -33,15 +33,43 @@ const DAYS: WeekdayKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursda
 function getNowParts() {
   const now = new Date()
   const dayKey = DAYS[now.getDay()]
-  const hh = String(now.getHours()).padStart(2, '0')
-  const min = String(now.getMinutes()).padStart(2, '0')
-  const hhmm = `${hh}:${min}`
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
   const yyyy = now.getFullYear()
   const mm = String(now.getMonth() + 1).padStart(2, '0')
   const dd = String(now.getDate()).padStart(2, '0')
-  const todayFull = `${yyyy}-${mm}-${dd}` // "2026-03-24"
-  const todayMmDd = `${mm}-${dd}`          // "03-24"
-  return { dayKey, hhmm, todayFull, todayMmDd }
+  const todayFull = `${yyyy}-${mm}-${dd}`
+  const todayMmDd = `${mm}-${dd}`
+  return { dayKey, currentMinutes, todayFull, todayMmDd }
+}
+
+function parseTimeToMinutes(rawStr: string | null | undefined, isEndTime = false, referenceFromMinutes = 0): number | null {
+  if (!rawStr || typeof rawStr !== 'string') return null
+  const str = rawStr.trim().toUpperCase()
+  if (!str) return null
+
+  const isPM = str.includes('PM')
+  const isAM = str.includes('AM')
+  const cleanStr = str.replace(/[^\d:]/g, '')
+
+  const parts = cleanStr.split(':')
+  if (!parts[0]) return null
+  let hours = parseInt(parts[0], 10)
+  let minutes = parts.length > 1 ? parseInt(parts[1], 10) : 0
+
+  if (isNaN(hours)) return null
+  if (isNaN(minutes)) minutes = 0
+
+  if (isPM && hours < 12) hours += 12
+  if (isAM && hours === 12) hours = 0
+
+  let total = hours * 60 + minutes
+
+  // Handle case where user entered "5:00" or "05:00" instead of "17:00" for 5 PM
+  if (isEndTime && referenceFromMinutes > 0 && total <= referenceFromMinutes && hours < 12) {
+    total += 720
+  }
+
+  return total
 }
 
 function findSpecialToday(specialDates: SpecialDate[], todayFull: string, todayMmDd: string): SpecialDate | undefined {
@@ -54,7 +82,7 @@ function findSpecialToday(specialDates: SpecialDate[], todayFull: string, todayM
 
 /** Returns true if the user should currently be allowed in */
 function isAllowed(schedule: Schedule, specialDates: SpecialDate[]): boolean {
-  const { dayKey, hhmm, todayFull, todayMmDd } = getNowParts()
+  const { dayKey, currentMinutes, todayFull, todayMmDd } = getNowParts()
 
   const specialToday = findSpecialToday(specialDates, todayFull, todayMmDd)
 
@@ -62,13 +90,26 @@ function isAllowed(schedule: Schedule, specialDates: SpecialDate[]): boolean {
     // Holiday — no working hours at all
     if (!specialToday.from || !specialToday.to) return false
     // Special hours window
-    return hhmm >= specialToday.from && hhmm < specialToday.to
+    const specFromMins = parseTimeToMinutes(specialToday.from, false)
+    const specToMins = parseTimeToMinutes(specialToday.to, true, specFromMins ?? 0)
+    if (specFromMins !== null && specToMins !== null) {
+      return currentMinutes >= specFromMins && currentMinutes < specToMins
+    }
+    return false
   }
 
   // Normal schedule
   const sched = schedule[dayKey]
   if (!sched?.enabled) return false
-  return hhmm >= sched.from && hhmm < sched.to
+
+  const fromMins = parseTimeToMinutes(sched.from, false)
+  const toMins = parseTimeToMinutes(sched.to, true, fromMins ?? 0)
+
+  if (fromMins !== null && toMins !== null) {
+    return currentMinutes >= fromMins && currentMinutes < toMins
+  }
+
+  return true
 }
 
 async function fetchSettings(): Promise<{ schedule: Schedule | null; specialDates: SpecialDate[] }> {
