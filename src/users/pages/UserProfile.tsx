@@ -18,13 +18,12 @@ export default function UserProfile({ user }: UserProfileProps) {
   type ProfileTab = "office_email" | "department_head" | "change_password"
 
   const [tab, setTab] = useState<ProfileTab>("change_password")
-  const [officeEmail, setOfficeEmail] = useState("jcpayumo@bataan.gov.ph")
+  const [officeEmail, setOfficeEmail] = useState("")
   const [contactNumber, setContactNumber] = useState("")
-  const [deptHead, setDeptHead] = useState("DEODAR Q. DIMAUANAHAN, MD")
-  const [deptHeadDesignation, setDeptHeadDesignation] = useState("OIC: Chief of Hospital")
+  const [deptHead, setDeptHead] = useState("")
+  const [deptHeadDesignation, setDeptHeadDesignation] = useState("")
   const [passwordForm, setPasswordForm] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" })
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
-  const [currentOfficeId, setCurrentOfficeId] = useState<number | null>(null)
 
   const usernameKey = useMemo(() => {
     return user?.username ? user.username : "User"
@@ -132,47 +131,9 @@ export default function UserProfile({ user }: UserProfileProps) {
     })()
   }, [settingsKey])
 
-  useEffect(() => {
-    if (!currentOfficeName) return
-
-    ;(async () => {
-      try {
-        const token = localStorage.getItem('token')
-        const res = await fetch(`${API_URL}/offices`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (!res.ok) return
-        const data = (await res.json()) as {
-          offices?: Array<{ officeId?: number; name?: string; head?: string; headDesignation?: string; email?: string }>
-        }
-
-        const match = (data.offices || []).find((o) => {
-          const name = String(o?.name || '').trim().toLowerCase()
-          return name && name === currentOfficeName.trim().toLowerCase()
-        })
-
-        if (!match) return
-        const officeId = Number((match as any)?.officeId)
-        if (Number.isFinite(officeId)) setCurrentOfficeId(officeId)
-        const head = String(match.head || '').trim()
-        const designation = String(match.headDesignation || '').trim()
-        const email = String(match.email || '').trim()
-        if (head) setDeptHead(head)
-        if (designation) setDeptHeadDesignation(designation)
-        if (email) setOfficeEmail(email)
-      } catch {
-        // ignore
-      }
-    })()
-  }, [currentOfficeName])
-
-  const patchOffice = async (body: { email?: string; head?: string; headDesignation?: string }) => {
-    if (!currentOfficeId) throw new Error('Office not found for this user.')
+  const patchProfile = async (body: { officeEmail?: string; deptHead?: string; deptHeadDesignation?: string; contactNumber?: string }) => {
     const token = localStorage.getItem('token')
-    const res = await fetch(`${API_URL}/offices/${currentOfficeId}`, {
+    const res = await fetch(`${API_URL}/profile`, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -180,10 +141,9 @@ export default function UserProfile({ user }: UserProfileProps) {
       },
       body: JSON.stringify(body),
     })
-
     if (!res.ok) {
       const msg = await res.text().catch(() => '')
-      throw new Error(msg || 'Failed to update office')
+      throw new Error(msg || 'Failed to update profile')
     }
   }
 
@@ -375,25 +335,7 @@ export default function UserProfile({ user }: UserProfileProps) {
                   }
 
                   try {
-                    await patchOffice({ email: emailValue })
-
-                    // Keep profile contact number update (user-specific)
-                    const token = localStorage.getItem('token')
-                    const res = await fetch(`${API_URL}/profile`, {
-                      method: 'PATCH',
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        officeEmail: emailValue,
-                      }),
-                    })
-
-                    if (!res.ok) {
-                      const msg = await res.text().catch(() => '')
-                      throw new Error(msg || 'Failed to save')
-                    }
+                    await patchProfile({ officeEmail: emailValue })
 
                     try {
                       localStorage.setItem(
@@ -483,26 +425,7 @@ export default function UserProfile({ user }: UserProfileProps) {
                   }
 
                   try {
-                    await patchOffice({ head: nameValue, headDesignation: desigValue })
-
-                    // Keep profile update for backward compatibility
-                    const token = localStorage.getItem('token')
-                    const res = await fetch(`${API_URL}/profile`, {
-                      method: 'PATCH',
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        deptHead: nameValue,
-                        deptHeadDesignation: desigValue,
-                      }),
-                    })
-
-                    if (!res.ok) {
-                      const msg = await res.text().catch(() => '')
-                      throw new Error(msg || 'Failed to save')
-                    }
+                    await patchProfile({ deptHead: nameValue, deptHeadDesignation: desigValue })
 
                     try {
                       localStorage.setItem(
