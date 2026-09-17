@@ -189,7 +189,7 @@ export default function ProcurementUsersPage({ title = "Users" }: ProcurementUse
     })()
   }
 
-  async function fetchUsers(selectedOffice: string) {
+  async function fetchUsers(selectedOffice: string = office) {
     if (!selectedOffice) return
     try {
       setLoading(true)
