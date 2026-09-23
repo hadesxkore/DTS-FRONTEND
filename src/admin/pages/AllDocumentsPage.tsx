@@ -8,6 +8,7 @@ import {
   Plus,
   Printer,
   RotateCcw,
+  Trash2,
   XCircle,
 } from "lucide-react"
 import Barcode from "react-barcode"
@@ -497,6 +498,9 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
     | null
   >(null)
 
+  const [deleteConfirm, setDeleteConfirm] = useState<RequestRow | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
   const [returnToApprovalsConfirm, setReturnToApprovalsConfirm] = useState<RequestRow | null>(null)
   const [returnToApprovalsRemarks, setReturnToApprovalsRemarks] = useState("")
   const [returnToApprovalsBusy, setReturnToApprovalsBusy] = useState(false)
@@ -520,6 +524,11 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
 
   const closeStatusConfirm = () => {
     setStatusConfirm(null)
+  }
+
+  const closeDeleteConfirm = () => {
+    if (deleteBusy) return
+    setDeleteConfirm(null)
   }
 
   const isAdminRole = useMemo(() => {
@@ -565,6 +574,20 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
     if (!response.ok) {
       const msg = await response.text().catch(() => '')
       throw new Error(msg || 'Failed to update document')
+    }
+  }
+
+  const deleteDocument = async (docId: string) => {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${API_URL}/documents/${docId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.message || 'Failed to delete document')
     }
   }
 
@@ -1874,6 +1897,91 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
         </div>
       ) : null}
 
+      {deleteConfirm ? (
+        <div
+          className="fixed inset-0 z-60 overflow-y-auto bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.currentTarget === e.target && !deleteBusy) {
+              closeDeleteConfirm()
+            }
+          }}
+        >
+          <div className="min-h-full w-full">
+            <div className="flex min-h-full items-start justify-center py-10">
+              <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-red-50/50">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 shrink-0">
+                      <Trash2 className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-base font-semibold text-red-900">Delete Document</div>
+                      <div className="truncate text-xs font-mono text-slate-600">{deleteConfirm.trackingNo}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-red-800">Warning: Permanent Action</div>
+                    <div className="mt-1 text-xs text-red-700 leading-relaxed">
+                      Are you sure you want to permanently delete document <strong>#{deleteConfirm.trackingNo}</strong>? This action cannot be undone and will remove all history and logs for this entry.
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1.5 text-slate-600">
+                    <div><span className="font-semibold text-slate-700">Office / Requestor:</span> {deleteConfirm.officeRequestor || 'N/A'}</div>
+                    {deleteConfirm.purpose ? (
+                      <div className="line-clamp-2"><span className="font-semibold text-slate-700">Purpose:</span> {deleteConfirm.purpose}</div>
+                    ) : null}
+                    {deleteConfirm.amount ? (
+                      <div><span className="font-semibold text-slate-700">Amount:</span> {deleteConfirm.amount}</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+                  <button
+                    type="button"
+                    disabled={deleteBusy}
+                    onClick={closeDeleteConfirm}
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleteBusy}
+                    onClick={async () => {
+                      if (!deleteConfirm) return
+                      const row = deleteConfirm
+                      setDeleteBusy(true)
+                      try {
+                        await deleteDocument(String(row.doc._id))
+                        toast.success(`Document #${row.trackingNo} deleted successfully`)
+                        setDeleteConfirm(null)
+                        await fetchRows()
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : 'Failed to delete document')
+                        toast.error(e instanceof Error ? e.message : 'Failed to delete document')
+                      } finally {
+                        setDeleteBusy(false)
+                      }
+                    }}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 className="size-4" />
+                    {deleteBusy ? 'Deleting...' : 'Delete Document'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {returnToApprovalsConfirm ? (
         <div
           className="fixed inset-0 z-60 overflow-y-auto bg-black/40 p-4"
@@ -2496,7 +2604,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={actionBusyId === String(r.doc._id)}
+                                  disabled={actionBusyId === String(r.doc._id) || deleteBusy}
                                   onClick={async () => {
                                     setStatusConfirm({ kind: 'continue', row: r })
                                   }}
@@ -2505,18 +2613,40 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                                   <CheckCircle2 className="size-3.5" />
                                   Continue
                                 </button>
+                                <button
+                                  type="button"
+                                  disabled={actionBusyId === String(r.doc._id) || deleteBusy}
+                                  onClick={() => setDeleteConfirm(r)}
+                                  className="inline-flex h-7 w-32 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-red-600 px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                  Delete
+                                </button>
                               </>
                             ) : null}
 
                             {isAdminRole && fundTab === 'discontinued' ? null : r.status.phase === 'completed' ? (
-                              <button
-                                type="button"
-                                onClick={() => setLogsDoc(r)}
-                                className="inline-flex h-7 w-32 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-50 hover:border-slate-300 hover:text-blue-600 focus:outline-none"
-                              >
-                                <History className="size-3.5" />
-                                History
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setLogsDoc(r)}
+                                  className="inline-flex h-7 w-32 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-50 hover:border-slate-300 hover:text-blue-600 focus:outline-none"
+                                >
+                                  <History className="size-3.5" />
+                                  History
+                                </button>
+                                {isAdminRole ? (
+                                  <button
+                                    type="button"
+                                    disabled={actionBusyId === String(r.doc._id) || deleteBusy}
+                                    onClick={() => setDeleteConfirm(r)}
+                                    className="inline-flex h-7 w-32 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-red-600 px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    Delete
+                                  </button>
+                                ) : null}
+                              </>
                             ) : (
                               <>
                                 <button
@@ -2593,6 +2723,17 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                                   <LogOut className="size-3.5 rotate-180" />
                                   Discontinue
                                 </button>
+                                {isAdminRole ? (
+                                  <button
+                                    type="button"
+                                    disabled={actionBusyId === String(r.doc._id) || deleteBusy}
+                                    onClick={() => setDeleteConfirm(r)}
+                                    className="inline-flex h-7 w-32 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-red-600 px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    Delete
+                                  </button>
+                                ) : null}
                               </>
                             )}
                           </div>
