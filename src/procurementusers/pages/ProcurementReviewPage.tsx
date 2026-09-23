@@ -559,9 +559,14 @@ export default function ProcurementReviewPage({ officePrivileges: _officePrivile
     void fetchRows()
   }, [fetchRows])
 
-  const { office: userOffice } = getUserInfo()
+  const { office: userOffice, fullName: userFullName, role: userRole } = getUserInfo()
   useDocumentSocket(
-    { userId: userOffice, office: userOffice, role: "procurement" },
+    {
+      userId: userFullName || userOffice,
+      fullName: userFullName,
+      office: userOffice,
+      role: userRole || "procurement",
+    },
     handleDocChange
   )
 

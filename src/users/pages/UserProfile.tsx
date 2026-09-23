@@ -160,7 +160,7 @@ export default function UserProfile({ user }: UserProfileProps) {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6 px-4 py-6 lg:px-8 font-sans">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">

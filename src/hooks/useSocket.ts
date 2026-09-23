@@ -21,16 +21,16 @@ export {
   playNotificationSound,
 };
 
-type DocumentEventData = {
+export type DocumentEventData = {
   document: any;
   changes?: string[];
   updatedBy?: string;
   timestamp?: string;
 };
 
-type DocumentDeletedData = { documentId: string };
+export type DocumentDeletedData = { documentId: string };
 
-type SocketEventHandlers = {
+export type SocketEventHandlers = {
   onDocumentCreated?: (data: DocumentEventData) => void;
   onDocumentUpdated?: (data: DocumentEventData) => void;
   onDocumentDeleted?: (data: DocumentDeletedData) => void;
@@ -115,19 +115,15 @@ export function formatLatestAction(logs?: any[]): {
   let taskLine   = '';
 
   if (labelLower.startsWith('transferred to')) {
-    // "Transferred to BUDGET (Task: Review)" or "Transferred to PTO"
     const afterTo  = rawLabel.slice('Transferred to'.length).trim();
-    // Extract office: text before '(' or end
     const officeMatch = afterTo.match(/^([^(:\n]+)/);
     const destOffice  = officeMatch ? officeMatch[1].trim().toUpperCase() : afterTo.toUpperCase();
-    // Extract task from parens: (Task: ...) or just (...)
     const taskMatch = afterTo.match(/\(([^)]+)\)/);
     const taskText  = taskMatch ? taskMatch[1].replace(/^task:\s*/i, '').trim() : '';
     actionLine = `📤 Transferred to ${destOffice}`;
     if (taskText) taskLine = `Task: ${taskText}`;
 
   } else if (labelLower.startsWith('received by') || labelLower.startsWith('received at')) {
-    // "Received by BUDGET: Task name" or "Received by BUDGET"
     const afterBy  = rawLabel.replace(/^received\s+(?:by|at)\s*/i, '').trim();
     const colonIdx = afterBy.indexOf(':');
     const officePart = colonIdx >= 0 ? afterBy.slice(0, colonIdx).trim().toUpperCase() : afterBy.toUpperCase();
@@ -165,7 +161,6 @@ export function formatLatestAction(logs?: any[]): {
     if (colonIdx >= 0) taskLine = rawLabel.slice(colonIdx + 1).trim();
 
   } else {
-    // Generic fallback: use the label as-is, strip task from parens if present
     const taskMatch = rawLabel.match(/\(([^)]+)\)$/);
     actionLine = taskMatch ? rawLabel.slice(0, rawLabel.lastIndexOf('(')).trim() : rawLabel;
     if (taskMatch) taskLine = `Task: ${taskMatch[1].replace(/^task:\s*/i, '').trim()}`;
@@ -188,7 +183,6 @@ export function buildDetailedNotificationBody(doc: any, customReason?: string): 
   if (!doc) return '';
 
   const office = doc.office || doc.department || 'N/A';
-  // Always use the user who submitted/uploaded the request (createdBy)
   const user =
     (typeof doc.createdBy === 'string' && doc.createdBy.trim()) ||
     (typeof doc.submittedBy === 'string' && doc.submittedBy.trim()) ||
@@ -221,7 +215,8 @@ export function useSocket(
   userId?: string,
   office?: string,
   role?: string,
-  handlers?: SocketEventHandlers
+  handlers?: SocketEventHandlers,
+  secondaryUserId?: string
 ) {
   const socketRef = useRef<AnySocket | null>(null);
   const handlersRef = useRef(handlers);
@@ -258,12 +253,36 @@ export function useSocket(
           // Join rooms based on user info
           if (office) {
             socket?.emit('join-office', office);
+            const offUpper = office.toUpperCase();
+            if (offUpper.includes('GENERAL SERVICES') || offUpper === 'GSO') {
+              socket?.emit('join-office', 'GSO');
+              socket?.emit('join-office', 'OFFICE OF THE PROVINCIAL GENERAL SERVICES');
+              socket?.emit('join-office', 'GENERAL SERVICES OFFICE');
+            }
+            if (offUpper.includes('BUDGET')) {
+              socket?.emit('join-office', 'BUDGET');
+              socket?.emit('join-office', 'PROVINCIAL BUDGET OFFICE');
+              socket?.emit('join-office', 'OFFICE OF THE PROVINCIAL BUDGET OFFICER');
+            }
+            if (offUpper.includes('PTO') || offUpper.includes('TREASURER')) {
+              socket?.emit('join-office', 'PTO');
+              socket?.emit('join-office', 'PROVINCIAL TREASURERS OFFICE');
+              socket?.emit('join-office', "PROVINCIAL TREASURER'S OFFICE");
+              socket?.emit('join-office', 'OFFICE OF THE PROVINCIAL TREASURER');
+            }
+            if (offUpper.includes('BAC') || offUpper.includes('BIDS AND AWARDS')) {
+              socket?.emit('join-office', 'BAC');
+              socket?.emit('join-office', 'BIDS AND AWARDS COMMITTEE');
+            }
           }
           if (role) {
             socket?.emit('join-role', role);
           }
           if (userId) {
             socket?.emit('join-user', userId);
+          }
+          if (secondaryUserId && secondaryUserId !== userId) {
+            socket?.emit('join-user', secondaryUserId);
           }
 
           handlersRef.current?.onConnect?.();
@@ -278,51 +297,15 @@ export function useSocket(
           console.error('Socket connection error:', error);
         });
 
-        // ── Document Created ────────────────────────────────────────────────
+        // ── Document Created (Data refresh only - no global toast to everyone) ─────
         socket.on('document:created', (data: DocumentEventData) => {
           console.log('Document created event received:', data.document?.trackingNo);
-          const doc = data.document || {};
-          const trackingNo = doc.trackingNo || 'Document';
-          const detailedBody = buildDetailedNotificationBody(doc);
-
-          // Play sound and trigger desktop notification with all details
-          showDesktopNotification({
-            title: `📄 New Request: #${trackingNo}`,
-            body: detailedBody,
-            tag: `doc-created-${doc._id || trackingNo}`,
-          });
-
-          // In-app visual toast with key summary
-          const officeName = doc.office ? ` (${doc.office})` : '';
-          const stage = formatStage(doc.status, doc.logs);
-          toast.info(`🔔 New Request #${trackingNo}${officeName} • ${stage}`);
-
           handlersRef.current?.onDocumentCreated?.(data);
         });
 
-        // ── Document Updated ────────────────────────────────────────────────
+        // ── Document Updated (Data refresh only - no global toast to everyone) ─────
         socket.on('document:updated', (data: DocumentEventData) => {
           console.log('Document updated event received:', data.document?.trackingNo);
-          const doc = data.document || {};
-          const trackingNo = doc.trackingNo || '';
-          const detailedBody = buildDetailedNotificationBody(doc);
-
-          // Build a rich toast message showing the latest action
-          const { actionLine, taskLine, byLine } = formatLatestAction(doc.logs);
-          const parts: string[] = [`#${trackingNo}`];
-          if (actionLine) parts.push(actionLine);
-          if (taskLine)   parts.push(taskLine);
-          if (byLine)     parts.push(byLine);
-          const toastMsg = parts.join(' • ');
-
-          showDesktopNotification({
-            title: `🔄 Document Updated: #${trackingNo}`,
-            body: detailedBody,
-            tag: `doc-updated-${doc._id || trackingNo}`,
-          });
-
-          toast.info(toastMsg);
-
           handlersRef.current?.onDocumentUpdated?.(data);
         });
 
@@ -332,80 +315,58 @@ export function useSocket(
           handlersRef.current?.onDocumentDeleted?.(data);
         });
 
-        // ── Return to Approvals Requested ───────────────────────────────────
+        // ── Return to Approvals Requested (Admin targeted) ──────────────────
         socket.on('document:return_requested', (data: any) => {
           console.log('Return requested event received:', data?.trackingNo);
           const tracking = data?.trackingNo || data?.document?.trackingNo || '';
-          const user = data?.requestedBy || data?.document?.createdBy || 'End User';
-          const reason = data?.reason || '';
-          const doc = data?.document || {
-            trackingNo: tracking,
-            office: data?.office,
-            createdBy: user,
-            status: 'pending-gso',
-          };
-
-          const detailedBody = buildDetailedNotificationBody(doc, reason);
+          const byUser = data?.byUser ? ` by ${data.byUser}` : '';
+          const reason = data?.reason ? ` (${data.reason})` : '';
 
           showDesktopNotification({
-            title: `↩️ Return to Approvals Requested: #${tracking}`,
-            body: detailedBody,
-            tag: `doc-return-req-${tracking}`,
+            title: `↩️ Return Requested: #${tracking}`,
+            body: `Document #${tracking} was requested to return to approvals${byUser}${reason}`,
+            tag: `doc-return-${data?.documentId || tracking}`,
           });
 
-          toast.info(`↩️ Return to Approvals requested for #${tracking} by ${user}`);
-
+          toast.info(`↩️ Return requested for #${tracking}${byUser}`);
           handlersRef.current?.onReturnRequested?.(data);
         });
 
         // ── Admin Notifications ─────────────────────────────────────────────
         socket.on('notification:admin', (data: any) => {
           console.log('Admin notification event received:', data?.title);
-          const title = data?.title || '🔔 Admin Notification';
-          const message = data?.message || `Tracking #${data?.trackingNo || ''}`;
-
-          showDesktopNotification({
-            title,
-            body: message,
-            tag: `admin-notif-${Date.now()}`,
-          });
-
-          toast.info(`${title}: ${message}`);
-
           handlersRef.current?.onAdminNotification?.(data);
         });
 
-        // ── Office-targeted Notifications ───────────────────────────────────
+        // ── Office-targeted Notifications (only shown to office room members) ─
         socket.on('notification:office', (data: any) => {
-          console.log('Office notification event received:', data?.title);
+          console.log('Office notification received:', data?.title);
           const title = data?.title || '📨 Office Notification';
           const message = data?.message || '';
 
           showDesktopNotification({
             title,
             body: message,
-            tag: `office-notif-${Date.now()}`,
+            tag: `office-notif-${data?.trackingNo || Date.now()}`,
           });
 
           toast.info(`${title}: ${message}`);
-
           handlersRef.current?.onOfficeNotification?.(data);
         });
 
-        // ── User-targeted Notifications ─────────────────────────────────────
+        // ── User-targeted Notifications (targeted specifically to document owner) ──
         socket.on('notification:user', (data: any) => {
-          console.log('User notification event received:', data?.title);
+          console.log('User targeted notification event received:', data?.title);
           const title = data?.title || '🔔 Notification';
           const message = data?.message || '';
 
           showDesktopNotification({
             title,
             body: message,
-            tag: `user-notif-${Date.now()}`,
+            tag: `user-notif-${data?.trackingNo || Date.now()}`,
           });
 
           toast.info(`${title}: ${message}`);
-
           handlersRef.current?.onUserNotification?.(data);
         });
 
@@ -424,7 +385,7 @@ export function useSocket(
       }
       socketRef.current = null;
     };
-  }, [userId, office, role]);
+  }, [userId, secondaryUserId, office, role]);
 
   // Method to manually emit events
   const emit = useCallback((event: string, data: any) => {
@@ -442,7 +403,7 @@ export function useSocket(
 
 // Hook specifically for document-related real-time updates
 export function useDocumentSocket(
-  userContext: { userId?: string; office?: string; role?: string; fullName?: string },
+  userContext: { userId?: string; office?: string; role?: string; fullName?: string; username?: string },
   onDocumentsChange?: (action: 'created' | 'updated' | 'deleted' | 'return_requested', data: any) => void
 ) {
   const handlers: SocketEventHandlers = {
@@ -455,11 +416,15 @@ export function useDocumentSocket(
     onUserNotification: (data) => onDocumentsChange?.('updated', data),
   };
 
+  const primaryId = userContext.fullName || userContext.userId || userContext.username;
+  const secondaryId = userContext.username && userContext.username !== primaryId ? userContext.username : undefined;
+
   const { socket, isConnected, requestNotificationPermission, getNotificationPermission } = useSocket(
-    userContext.userId,
+    primaryId,
     userContext.office,
     userContext.role,
-    handlers
+    handlers,
+    secondaryId
   );
 
   return { socket, isConnected, requestNotificationPermission, getNotificationPermission };

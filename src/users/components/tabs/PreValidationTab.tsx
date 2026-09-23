@@ -4,6 +4,27 @@ import { type DocumentRow, type DocumentParticular, type DocumentLog, getSubDocA
 
 type TransferTask = { taskId?: number; task?: string; duration?: string; status?: string }
 
+/**
+ * Resolves a raw office name (e.g. from a log's byOffice field) to the
+ * matching key in transferTasksByOffice. The map is usually keyed by
+ * a short name (e.g. "GSO", "BUDGET") while byOffice may contain the
+ * full formal name. Falls back to substring matching.
+ */
+function resolveOfficeKey(
+  rawOffice: string,
+  taskMap: Record<string, TransferTask[]>
+): string {
+  const upper = rawOffice.trim().toUpperCase()
+  if (!upper) return upper
+  if (taskMap[upper] !== undefined) return upper
+  const keys = Object.keys(taskMap)
+  const found = keys.find((k) => {
+    const ku = k.trim().toUpperCase()
+    return ku && (upper.includes(ku) || ku.includes(upper))
+  })
+  return found || upper
+}
+
 type Props = {
   docs: DocumentRow[]
   expandedRows: Set<string>
@@ -103,9 +124,14 @@ export default function PreValidationTab({
                   if (!latestMovementLog || !String(latestMovementLog.label || "").toLowerCase().startsWith("received")) {
                     return { isExceeded: false, elapsedText: "", taskFromLabel: "", officeOfTask: "" }
                   }
-                  const officeOfTask = String(latestMovementLog.byOffice || "").toUpperCase()
+                  const officeOfTaskRaw = String(latestMovementLog.byOffice || "").toUpperCase()
+                  const officeOfTask = resolveOfficeKey(officeOfTaskRaw, transferTasksByOffice)
                   const label = String(latestMovementLog.label || "")
                   const taskFromLabel =
+                    (() => {
+                      const m = label.match(/received\s+for\s+(.+)$/i)
+                      return String(m?.[1] || "").trim()
+                    })() ||
                     (() => {
                       const m = label.match(/received\s*(?:for\s*)?(.*)$/i)
                       return String(m?.[1] || "").trim()
@@ -119,8 +145,16 @@ export default function PreValidationTab({
                   const elapsedMs = hasStartTime ? Date.now() - startTime : 0
                   const elapsedText = hasStartTime ? formatElapsedShort(elapsedMs) : ""
                   if (officeOfTask && taskFromLabel) {
-                    const officeTasks = transferTasksByOffice[officeOfTask] || []
-                    const taskInfo = officeTasks.find((t) => String(t?.task || "").trim() === taskFromLabel)
+                    const officeTasks = (transferTasksByOffice[officeOfTask] || []).filter(t => !String(t?.status || '').toLowerCase().includes('archived'))
+                    let taskInfo = officeTasks.find((t) => String(t?.task || "").trim().toLowerCase() === taskFromLabel.toLowerCase())
+                    if (!taskInfo && taskFromLabel.length > 2) {
+                      taskInfo = officeTasks.find((t) => {
+                        const tName = String(t?.task || '').trim().toLowerCase()
+                        const rName = taskFromLabel.toLowerCase()
+                        return tName.includes(rName) || rName.includes(tName)
+                      })
+                    }
+                    if (!taskInfo && officeTasks.length === 1) taskInfo = officeTasks[0]
                     if (taskInfo?.duration) {
                       const durationMs = parseDurationToMs(taskInfo.duration)
                       if (durationMs > 0 && hasStartTime) {

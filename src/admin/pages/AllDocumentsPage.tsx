@@ -3832,6 +3832,45 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                             return isTransferLog(labelRaw) || isTerminalActionLog(labelRaw)
                           }
 
+                          const isPrevalStartLog = (labelRaw: string) => {
+                            const labelLower = String(labelRaw || '').trim().toLowerCase()
+                            if (!labelLower) return false
+                            return (
+                              labelLower.startsWith('submitted') ||
+                              labelLower.includes('submitted') ||
+                              labelLower.startsWith('created') ||
+                              labelLower.includes('created') ||
+                              labelLower.startsWith('remarks') ||
+                              labelLower.includes('complied') ||
+                              labelLower.startsWith('resubmitted') ||
+                              labelLower.startsWith('re-submitted') ||
+                              labelLower.startsWith('updated') ||
+                              isReceivedLog(labelRaw)
+                            )
+                          }
+
+                          const isPrevalEndLog = (labelRaw: string) => {
+                            const labelLower = String(labelRaw || '').trim().toLowerCase()
+                            if (!labelLower) return false
+                            return (
+                              labelLower.includes('approved') ||
+                              labelLower.includes('returned') ||
+                              labelLower.includes('completed') ||
+                              labelLower.includes('discontinued') ||
+                              labelLower.includes('cancelled') ||
+                              labelLower.includes('canceled') ||
+                              isTransferLog(labelRaw)
+                            )
+                          }
+
+                          const isStageStartLog = (labelRaw: string) => {
+                            return historyTab === 'transactions' ? isReceivedLog(labelRaw) : isPrevalStartLog(labelRaw)
+                          }
+
+                          const isStageFinishLog = (labelRaw: string) => {
+                            return historyTab === 'transactions' ? isStageEndLog(labelRaw) : isPrevalEndLog(labelRaw)
+                          }
+
                           const selectedAsc =
                             historyTab === 'transactions'
                               ? transactionsAsc.filter((l) =>
@@ -3851,12 +3890,16 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           for (let i = 0; i < selectedAsc.length; i += 1) {
                             if (coveredIdx.has(i)) continue
                             const current = selectedAsc[i]
-                            if (!isReceivedLog(String(current?.label || ''))) continue
+                            if (!isStageStartLog(String(current?.label || ''))) continue
 
                             let endIdx = -1
                             for (let j = i + 1; j < selectedAsc.length; j += 1) {
-                              if (isStageEndLog(String(selectedAsc[j]?.label || ''))) {
+                              const nextLabel = String(selectedAsc[j]?.label || '')
+                              if (isStageFinishLog(nextLabel)) {
                                 endIdx = j
+                                break
+                              }
+                              if (isStageStartLog(nextLabel)) {
                                 break
                               }
                             }
@@ -3874,11 +3917,10 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                             }
                           }
 
-                          const totalMinutesSum = Array.from(spanByStartIdx.values()).reduce(
-                            (sum, it) => sum + Math.max(0, Math.floor(it.durationMs / (1000 * 60))),
+                          const totalMs = Array.from(spanByStartIdx.values()).reduce(
+                            (sum, it) => sum + Math.max(0, it.durationMs),
                             0
                           )
-                          const totalMs = totalMinutesSum * 1000 * 60
 
                           const count = selectedAsc.filter((l) => Boolean(String(l?.label || '').trim())).length
                           if (count === 0) {

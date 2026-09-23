@@ -73,6 +73,38 @@ const statusBadgeClass: Record<OfficeStatus, string> = {
   archived: "bg-rose-600 text-white",
 }
 
+function parseDurationParts(durationStr: string): { value: string; unit: string } {
+  const s = String(durationStr || '').trim().toLowerCase()
+  if (!s) return { value: "1", unit: "hours" }
+  const match = s.match(/^(\d+(?:\.\d+)?)\s*(day|days|hour|hours|hr|hrs|min|mins|minute|minutes|sec|secs|second|seconds)?$/)
+  if (match) {
+    const val = match[1]
+    const u = match[2] || "hours"
+    let normalizedUnit = "hours"
+    if (u.startsWith("min")) normalizedUnit = "minutes"
+    else if (u.startsWith("hour") || u === "hr" || u === "hrs") normalizedUnit = "hours"
+    else if (u.startsWith("day")) normalizedUnit = "days"
+    return { value: val, unit: normalizedUnit }
+  }
+  return { value: "1", unit: "hours" }
+}
+
+function formatDurationValue(value: string | number, unit: string): string {
+  const num = parseFloat(String(value))
+  if (isNaN(num) || num <= 0) return ""
+  const cleanUnit = (unit || "hours").toLowerCase()
+  if (cleanUnit.startsWith("min")) {
+    return `${num} ${num === 1 ? "minute" : "minutes"}`
+  }
+  if (cleanUnit.startsWith("hour") || cleanUnit === "hr" || cleanUnit === "hrs") {
+    return `${num} ${num === 1 ? "hour" : "hours"}`
+  }
+  if (cleanUnit.startsWith("day")) {
+    return `${num} ${num === 1 ? "day" : "days"}`
+  }
+  return `${num} ${cleanUnit}`
+}
+
 export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
   const [tab, setTab] = useState<OfficesTab>("offices")
   const [rows, setRows] = useState<OfficeRow[]>([])
@@ -93,10 +125,12 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
   const [taskQuery, setTaskQuery] = useState("")
   const [taskPageSize, setTaskPageSize] = useState(10)
   const [newTaskName, setNewTaskName] = useState("")
-  const [newTaskDuration, setNewTaskDuration] = useState("")
+  const [newTaskDurationValue, setNewTaskDurationValue] = useState("1")
+  const [newTaskDurationUnit, setNewTaskDurationUnit] = useState("hours")
   const [editTask, setEditTask] = useState<{ officeId: number; taskId: number } | null>(null)
   const [editTaskName, setEditTaskName] = useState("")
-  const [editTaskDuration, setEditTaskDuration] = useState("")
+  const [editTaskDurationValue, setEditTaskDurationValue] = useState("1")
+  const [editTaskDurationUnit, setEditTaskDurationUnit] = useState("hours")
 
   const [officeToDelete, setOfficeToDelete] = useState<OfficeRow | null>(null)
 
@@ -391,7 +425,7 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
   async function submitEditTask() {
     if (!editTask) return
     const task = editTaskName.trim()
-    const duration = editTaskDuration.trim()
+    const duration = formatDurationValue(editTaskDurationValue, editTaskDurationUnit)
     if (!task || !duration) return
 
     try {
@@ -415,7 +449,8 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
       await fetchOffices()
       setEditTask(null)
       setEditTaskName("")
-      setEditTaskDuration("")
+      setEditTaskDurationValue("1")
+      setEditTaskDurationUnit("hours")
       toast.success("Task updated successfully.")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update task")
@@ -592,7 +627,7 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
     if (!tasksOffice) return
 
     const task = newTaskName.trim()
-    const duration = newTaskDuration.trim()
+    const duration = formatDurationValue(newTaskDurationValue, newTaskDurationUnit)
     if (!task || !duration) return
 
       ; (async () => {
@@ -616,7 +651,8 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
 
           await fetchOffices()
           setNewTaskName("")
-          setNewTaskDuration("")
+          setNewTaskDurationValue("1")
+          setNewTaskDurationUnit("hours")
           toast.success("Task added successfully.")
         } catch (e2) {
           setError(e2 instanceof Error ? e2.message : "Failed to add task")
@@ -853,7 +889,8 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
                             setTaskQuery("")
                             setTaskPageSize(10)
                             setNewTaskName("")
-                            setNewTaskDuration("")
+                            setNewTaskDurationValue("1")
+                            setNewTaskDurationUnit("hours")
                           }}
                         >
                           View Tasks
@@ -1434,9 +1471,11 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
                                     className="inline-flex h-7 items-center justify-center rounded bg-sky-600 px-3 text-[11px] font-semibold text-white transition hover:bg-sky-700 focus:outline-none focus-visible:outline-none"
                                     onClick={() => {
                                       if (!tasksOffice) return
+                                      const parsed = parseDurationParts(t.duration)
                                       setEditTask({ officeId: tasksOffice.id, taskId: t.id })
                                       setEditTaskName(t.task)
-                                      setEditTaskDuration(t.duration)
+                                      setEditTaskDurationValue(parsed.value)
+                                      setEditTaskDurationUnit(parsed.unit)
                                     }}
                                   >
                                     Edit
@@ -1482,20 +1521,37 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
                           id="newTask"
                           value={newTaskName}
                           onChange={(e) => setNewTaskName(e.target.value)}
+                          placeholder="e.g. Process Document"
                           className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-sm text-slate-700" htmlFor="newDuration">
+                        <label className="text-sm text-slate-700" htmlFor="newDurationValue">
                           Duration
                         </label>
-                        <input
-                          id="newDuration"
-                          value={newTaskDuration}
-                          onChange={(e) => setNewTaskDuration(e.target.value)}
-                          className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
-                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            id="newDurationValue"
+                            type="number"
+                            min="1"
+                            step="any"
+                            placeholder="e.g. 1"
+                            value={newTaskDurationValue}
+                            onChange={(e) => setNewTaskDurationValue(e.target.value)}
+                            className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
+                          />
+                          <select
+                            id="newDurationUnit"
+                            value={newTaskDurationUnit}
+                            onChange={(e) => setNewTaskDurationUnit(e.target.value)}
+                            className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
+                          >
+                            <option value="minutes">Minute(s)</option>
+                            <option value="hours">Hour(s)</option>
+                            <option value="days">Day(s)</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-2">
@@ -1553,15 +1609,31 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-700" htmlFor="editTaskDuration">
+                    <label className="text-sm font-semibold text-slate-700" htmlFor="editDurationValue">
                       Duration
                     </label>
-                    <input
-                      id="editTaskDuration"
-                      value={editTaskDuration}
-                      onChange={(e) => setEditTaskDuration(e.target.value)}
-                      className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        id="editDurationValue"
+                        type="number"
+                        min="1"
+                        step="any"
+                        placeholder="e.g. 1"
+                        value={editTaskDurationValue}
+                        onChange={(e) => setEditTaskDurationValue(e.target.value)}
+                        className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
+                      />
+                      <select
+                        id="editDurationUnit"
+                        value={editTaskDurationUnit}
+                        onChange={(e) => setEditTaskDurationUnit(e.target.value)}
+                        className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:outline-none"
+                      >
+                        <option value="minutes">Minute(s)</option>
+                        <option value="hours">Hour(s)</option>
+                        <option value="days">Day(s)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -1575,7 +1647,7 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
                   </button>
                   <button
                     type="button"
-                    disabled={loading || !editTaskName.trim() || !editTaskDuration.trim()}
+                    disabled={loading || !editTaskName.trim() || !editTaskDurationValue.trim() || Number(editTaskDurationValue) <= 0}
                     onClick={submitEditTask}
                     className="inline-flex h-9 items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none"
                   >

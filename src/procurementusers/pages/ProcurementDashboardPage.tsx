@@ -249,10 +249,10 @@ function ProcurementMyDashboard({ officeLabel, reviewCount: reviewBadge }: { off
   const [stats, setStats] = useState<DashboardStats>({ pending: 0, ongoing: 0, exceeded: 0 })
 
   const officeLower = String(officeLabel || "").toLowerCase()
-  const isGso = officeLower.includes("gso")
+  const isGso = officeLower.includes("gso") || officeLower.includes("general services") || officeLower.includes("pgso")
   const isBac = officeLower.includes("bac") || officeLower.includes("bids") || officeLower.includes("awards")
   const isBudget = officeLower.includes("budget")
-  const isPto = officeLower.includes("pto")
+  const isPto = officeLower.includes("pto") || officeLower.includes("treasurer")
 
   const loadStats = useCallback(async () => {
     try {
@@ -640,13 +640,13 @@ export default function ProcurementDashboardPage({ onLogout, user }: Procurement
                   : "Account Settings"
 
   const navOfficeLower = String(user?.office || "").toLowerCase()
-  const navIsGso = navOfficeLower.includes("gso")
+  const navIsGso = navOfficeLower.includes("gso") || navOfficeLower.includes("general services") || navOfficeLower.includes("pgso")
   const navIsBac = navOfficeLower.includes("bac") || navOfficeLower.includes("bids") || navOfficeLower.includes("awards")
   const navIsBudget = navOfficeLower.includes("budget")
   const navIsPto = navOfficeLower.includes("pto") || navOfficeLower.includes("treasurer")
 
   // All procurement offices follow the same flow, privileges determine access
-  const isProcurementOffice = navIsGso || navIsBac || navIsBudget || navIsPto
+  const isProcurementOffice = navIsGso || navIsBac || navIsBudget || navIsPto || user?.role === "procurement"
 
   const hasPrivilege = (name: string) => {
     const needle = String(name || "").trim().toLowerCase()

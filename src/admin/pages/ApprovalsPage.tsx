@@ -269,6 +269,27 @@ function formatElapsedShort(ms: number) {
   return `${days}d ${hr % 24}h`;
 }
 
+function normalizeOfficeKey(officeRaw: string) {
+  const s = String(officeRaw || '').trim().toLowerCase()
+  if (!s) return ''
+  if (s === 'gso' || s.includes('general services') || s.includes('gso') || s.includes('pgso')) return 'gso'
+  if (s === 'bac' || s.includes('bids') || s.includes('awards') || s.includes('bac')) return 'bac'
+  if (s === 'budget' || s.includes('budget')) return 'budget'
+  if (s === 'pto' || s.includes('treasurer') || s.includes('pto')) return 'pto'
+  if (s === 'pgo' || s.includes('governor') || s.includes('pgo')) return 'pgo'
+  if (s.includes('accounting')) return 'accounting'
+  if (s.includes('administrator') || s.includes('admin') || s === 'opao' || s === 'opa') return 'admin'
+  if (s.includes('end user')) return 'end user'
+  return s
+}
+
+function officeMatches(aRaw: string, bRaw: string) {
+  const a = normalizeOfficeKey(aRaw)
+  const b = normalizeOfficeKey(bRaw)
+  if (!a || !b) return false
+  return a === b || a.includes(b) || b.includes(a)
+}
+
 function LogBar({ label, tone }: { label: string; tone: ApprovalRow["logs"][number]["tone"] }) {
   const className = useMemo(() => {
     switch (tone) {
@@ -469,6 +490,9 @@ export default function ApprovalsPage({
   const [transferDest, setTransferDest] = useState<string>("")
   const [transferOfficeOptions, setTransferOfficeOptions] = useState<string[]>(["GSO", "BAC", "BUDGET", "PTO"])
   const [transferTask, setTransferTask] = useState<string>("")
+  const [transferTaskDropdownOpen, setTransferTaskDropdownOpen] = useState<boolean>(false)
+  const [transferTaskBtnRect, setTransferTaskBtnRect] = useState<DOMRect | null>(null)
+  const transferTaskBtnRef = useRef<HTMLButtonElement>(null)
   const [transferTasksByOffice, setTransferTasksByOffice] = useState<
     Record<
       string,
@@ -598,9 +622,33 @@ export default function ApprovalsPage({
   }, [actionIsBac, actionIsBudget, actionIsGso, actionIsPto, actionOfficeLower])
 
   const currentOfficeTasks = useMemo(() => {
-    const tasks = transferTasksByOffice[String(currentOfficeKey || '').toUpperCase()] || []
-    return tasks.filter((t) => String(t?.task || '').trim().toLowerCase() !== 'received')
-  }, [currentOfficeKey, transferTasksByOffice])
+    const allKeys = Object.keys(transferTasksByOffice)
+
+    // Helper to find tasks by any office identifier
+    const findTasksByOffice = (officeRaw: string) => {
+      if (!officeRaw) return null
+      // Exact match first
+      let key = allKeys.find((k) => k.toUpperCase() === officeRaw.toUpperCase())
+      // Fuzzy match via officeMatches
+      if (!key) key = allKeys.find((k) => officeMatches(k, officeRaw))
+      // Substring fallback
+      if (!key) {
+        const rawNorm = String(officeRaw).trim().toLowerCase()
+        key = allKeys.find((k) => {
+          const kNorm = String(k).trim().toLowerCase()
+          return kNorm.includes(rawNorm) || rawNorm.includes(kNorm)
+        })
+      }
+      return key ? (transferTasksByOffice[key] || []) : null
+    }
+
+    // Look up tasks by the logged-in user's own office
+    const tasks = findTasksByOffice(currentOfficeKey) ?? findTasksByOffice(actionOfficeLower) ?? []
+
+    return tasks
+      .filter((t) => !String(t?.status || '').toLowerCase().includes('archived'))
+      .filter((t) => String(t?.task || '').trim().toLowerCase() !== 'received')
+  }, [currentOfficeKey, actionOfficeLower, transferTasksByOffice])
 
   const returnedLabelForOffice = useMemo(() => {
     if (actionIsBudget) return "Transferred to End User (OBR Signing)"
@@ -693,84 +741,92 @@ export default function ApprovalsPage({
     handleDocumentChange
   )
 
-  useEffect(() => {
-    ; (async () => {
-      try {
-        const token = localStorage.getItem('token')
-        const response = await fetch(`${API_URL}/offices`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
+  const fetchOfficesAndTasks = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/offices`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
 
-        if (!response.ok) return
-        const data = (await response.json()) as {
-          offices?: Array<{
-            name?: string
-            type?: string
-            status?: string
-            head?: string
-            headDesignation?: string
-            tasks?: Array<{ taskId?: number; task?: string; duration?: string; status?: string }>
-          }>
-        }
-        const offices = Array.isArray(data?.offices) ? data.offices : []
+      if (!response.ok) return
+      const data = (await response.json()) as {
+        offices?: Array<{
+          name?: string
+          type?: string
+          status?: string
+          head?: string
+          headDesignation?: string
+          tasks?: Array<{ taskId?: number; task?: string; duration?: string; status?: string }>
+        }>
+      }
+      const offices = Array.isArray(data?.offices) ? data.offices : []
 
-        const tasksByOffice: Record<
-          string,
-          Array<{ taskId?: number; task?: string; duration?: string; status?: string }>
-        > = {}
+      const tasksByOffice: Record<
+        string,
+        Array<{ taskId?: number; task?: string; duration?: string; status?: string }>
+      > = {}
+      for (const o of offices) {
+        const name = String(o?.name || '').trim().toUpperCase()
+        const statusLower = String(o?.status || '').trim().toLowerCase()
+        const typeLower = String(o?.type || '').trim().toLowerCase()
+        if (!name) continue
+        if (statusLower === 'archived') continue
+        if (typeLower === 'viewing') continue
+        const tasksRaw = Array.isArray(o?.tasks) ? o.tasks : []
+        tasksByOffice[name] = tasksRaw
+          .filter((t) => !String(t?.status || '').toLowerCase().includes('archived'))
+          .map((t) => ({
+            taskId: t?.taskId,
+            task: String(t?.task || '').trim(),
+            duration: String(t?.duration || '').trim(),
+            status: t?.status,
+          }))
+          .filter((t) => Boolean(t.task))
+      }
+      const opts = offices
+        .filter((o) => String(o?.status || '').toLowerCase() !== 'archived')
+        .filter((o) => String(o?.type || '').toLowerCase() !== 'viewing')
+        .map((o) => String(o?.name || '').trim())
+        .filter(Boolean)
+        .map((n) => n.toUpperCase())
+        .sort((a, b) => a.localeCompare(b))
+
+      if (opts.length) {
+        const headsMap: Record<string, { head: string; designation: string }> = {}
         for (const o of offices) {
-          const name = String(o?.name || '').trim().toUpperCase()
-          const statusLower = String(o?.status || '').trim().toLowerCase()
-          const typeLower = String(o?.type || '').trim().toLowerCase()
-          if (!name) continue
-          if (statusLower === 'archived') continue
-          if (typeLower === 'viewing') continue
-          const tasksRaw = Array.isArray(o?.tasks) ? o.tasks : []
-          tasksByOffice[name] = tasksRaw
-            .filter((t) => String(t?.status || '').toLowerCase() !== 'archived')
-            .map((t) => ({
-              taskId: t?.taskId,
-              task: String(t?.task || '').trim(),
-              duration: String(t?.duration || '').trim(),
-              status: t?.status,
-            }))
-            .filter((t) => Boolean(t.task))
-        }
-        const opts = offices
-          .filter((o) => String(o?.status || '').toLowerCase() !== 'archived')
-          .filter((o) => String(o?.type || '').toLowerCase() !== 'viewing')
-          .map((o) => String(o?.name || '').trim())
-          .filter(Boolean)
-          .map((n) => n.toUpperCase())
-          .sort((a, b) => a.localeCompare(b))
-
-        if (opts.length) {
-          const headsMap: Record<string, { head: string; designation: string }> = {}
-          for (const o of offices) {
-            const n = String(o?.name || '').trim().toUpperCase()
-            if (n) {
-              headsMap[n] = {
-                head: String(o?.head || '').trim(),
-                designation: String(o?.headDesignation || '').trim(),
-              }
+          const n = String(o?.name || '').trim().toUpperCase()
+          if (n) {
+            headsMap[n] = {
+              head: String(o?.head || '').trim(),
+              designation: String(o?.headDesignation || '').trim(),
             }
           }
-          setOfficeHeads(headsMap)
-          setTransferTasksByOffice(tasksByOffice)
-          setTransferOfficeOptions(opts)
-          setTransferDest((current) => {
-            const cur = String(current || '').trim().toUpperCase()
-            if (!cur) return ""
-            return opts.includes(cur) ? cur : ""
-          })
         }
-      } catch {
-        // ignore
+        setOfficeHeads(headsMap)
+        setTransferTasksByOffice(tasksByOffice)
+        setTransferOfficeOptions(opts)
+        setTransferDest((current) => {
+          const cur = String(current || '').trim().toUpperCase()
+          if (!cur) return ""
+          return opts.includes(cur) ? cur : ""
+        })
       }
-    })()
+    } catch {
+      // ignore
+    }
   }, [])
+
+  useEffect(() => {
+    fetchOfficesAndTasks()
+  }, [fetchOfficesAndTasks])
+
+  useEffect(() => {
+    if (receiveConfirmRow) {
+      fetchOfficesAndTasks()
+    }
+  }, [receiveConfirmRow, fetchOfficesAndTasks])
 
   useEffect(() => {
     setTransferTask("")
@@ -778,34 +834,55 @@ export default function ApprovalsPage({
 
   useEffect(() => {
     if (!receiveConfirmRow) return
+    const rawLogs = Array.isArray(receiveConfirmRow.rawLogs) ? receiveConfirmRow.rawLogs : []
+    let transferTaskName = ''
+    for (let i = rawLogs.length - 1; i >= 0; i--) {
+      const label = String(rawLogs[i]?.label || '').trim()
+      if (label.toLowerCase().startsWith('transferred to')) {
+        const m = label.match(/\(([^)]+)\)\s*$/)
+        if (m?.[1]) {
+          transferTaskName = m[1].trim()
+          break
+        }
+      }
+    }
+
     const firstTask = String(currentOfficeTasks?.[0]?.task || '').trim()
+    const matchingTransferredTask = currentOfficeTasks.find(
+      (t) => String(t?.task || '').trim().toLowerCase() === transferTaskName.toLowerCase()
+    )
+    const defaultTask = matchingTransferredTask
+      ? String(matchingTransferredTask.task || '').trim()
+      : firstTask
+
     setReceiveTask((current) => {
       const cur = String(current || '').trim()
-      if (!cur) return firstTask
+      if (!cur) return defaultTask
       const stillExists = currentOfficeTasks.some((t) => String(t?.task || '').trim() === cur)
-      return stillExists ? cur : firstTask
+      return stillExists ? cur : defaultTask
     })
   }, [currentOfficeTasks, receiveConfirmRow])
 
   const getLastTransferTimeToOffice = (rawLogs: any[], officeKey: string) => {
-    const officeNeedle = String(officeKey || '').trim().toLowerCase()
-    if (!officeNeedle) return null
+    if (!officeKey && !actionOfficeLower) return null
     const prefix = 'transferred to'
 
     for (let i = rawLogs.length - 1; i >= 0; i -= 1) {
       const labelLower = String(rawLogs[i]?.label || '').trim().toLowerCase()
-      if (!labelLower.startsWith(prefix)) continue
+      let destOffice = ''
 
-      const afterPrefix = labelLower.slice(prefix.length).trim()
-      if (!afterPrefix) continue
+      if (labelLower.startsWith(prefix)) {
+        const afterPrefix = labelLower.slice(prefix.length).trim()
+        if (!afterPrefix) continue
+        const officeMatch = afterPrefix.match(/^([^(:]+)/)
+        destOffice = String(officeMatch ? officeMatch[1] : afterPrefix).trim()
+      } else {
+        const legacyMatch = labelLower.match(/approved[:\s]+transferred\s+to\s+([^(:]+)/i)
+        if (legacyMatch) destOffice = String(legacyMatch[1]).trim()
+      }
 
-      const officeMatch = afterPrefix.match(/^([^(:]+)/)
-      const destOffice = String(officeMatch ? officeMatch[1] : afterPrefix)
-        .trim()
-        .toLowerCase()
       if (!destOffice) continue
-
-      if (!(destOffice === officeNeedle || destOffice.includes(officeNeedle))) continue
+      if (!officeMatches(destOffice, officeKey) && !officeMatches(destOffice, actionOfficeLower)) continue
 
       const ts = new Date(String(rawLogs[i]?.createdAt || '')).getTime()
       return Number.isFinite(ts) ? ts : null
@@ -824,14 +901,13 @@ export default function ApprovalsPage({
         const afterPrefix = labelLower.slice(prefix.length).trim()
         if (!afterPrefix) continue
         const officeMatch = afterPrefix.match(/^([^(:]+)/)
-        const destOffice = String(officeMatch ? officeMatch[1] : afterPrefix).trim().toLowerCase()
+        const destOffice = String(officeMatch ? officeMatch[1] : afterPrefix).trim()
         if (destOffice) return destOffice
       }
       // Legacy back-compat: "Approved: Transferred to OFFICE (...)" format
-      // used by the first version of the admin Approve handler
       const legacyMatch = labelLower.match(/approved[:\s]+transferred\s+to\s+([^(:]+)/i)
       if (legacyMatch) {
-        const destOffice = String(legacyMatch[1]).trim().toLowerCase()
+        const destOffice = String(legacyMatch[1]).trim()
         if (destOffice) return destOffice
       }
     }
@@ -840,8 +916,7 @@ export default function ApprovalsPage({
 
   const hasReceivedForCurrentOffice = (row: ApprovalRow) => {
     const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : []
-    const currentOffice = String(actionOfficeLower || '').trim().toLowerCase()
-    if (!currentOffice) return false
+    if (!actionOfficeLower && !currentOfficeKey) return false
 
     const lastTransferTs = getLastTransferTimeToOffice(rawLogs, currentOfficeKey)
 
@@ -850,9 +925,9 @@ export default function ApprovalsPage({
     // newly reprocessed transfer appear already received.
     return rawLogs.some((l) => {
       const label = String(l?.label || '').trim().toLowerCase()
-      const byOffice = String(l?.byOffice || '').trim().toLowerCase()
+      const byOffice = String(l?.byOffice || '').trim()
       if (!label.startsWith('received')) return false
-      if (byOffice !== currentOffice) return false
+      if (!officeMatches(byOffice, actionOfficeLower) && !officeMatches(byOffice, currentOfficeKey)) return false
 
       if (lastTransferTs == null) return true
       const receivedTs = new Date(String(l?.createdAt || '')).getTime()
@@ -862,25 +937,23 @@ export default function ApprovalsPage({
   }
 
   const hasTransferredToCurrentOffice = (row: ApprovalRow) => {
-    const officeNeedle = String(currentOfficeKey || '').trim().toLowerCase()
-    if (!officeNeedle) return false
     const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : []
     const lastDest = getLastTransferredOffice(rawLogs)
-    return lastDest ? (lastDest === officeNeedle || lastDest.includes(officeNeedle)) : false
+    if (!lastDest) return false
+    return officeMatches(lastDest, currentOfficeKey) || officeMatches(lastDest, actionOfficeLower)
   }
 
   const hasTransferredFromCurrentOffice = (row: ApprovalRow) => {
     const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : []
-    const currentOffice = String(actionOfficeLower || '').trim().toLowerCase()
-    if (!currentOffice) return false
+    if (!actionOfficeLower && !currentOfficeKey) return false
 
     const lastTransferToUsTs = getLastTransferTimeToOffice(rawLogs, currentOfficeKey)
 
     return rawLogs.some((l) => {
       const label = String(l?.label || '').trim().toLowerCase()
-      const byOffice = String(l?.byOffice || '').trim().toLowerCase()
+      const byOffice = String(l?.byOffice || '').trim()
       if (!label.startsWith('transferred to')) return false
-      if (byOffice !== currentOffice) return false
+      if (!officeMatches(byOffice, actionOfficeLower) && !officeMatches(byOffice, currentOfficeKey)) return false
 
       if (lastTransferToUsTs == null) return true
       const transferredTs = new Date(String(l?.createdAt || '')).getTime()
@@ -893,10 +966,6 @@ export default function ApprovalsPage({
     const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : []
     if (rawLogs.length === 0) return false
 
-    const currentOffice = String(actionOfficeLower || '').trim().toLowerCase()
-    const officeKey = String(currentOfficeKey || '').trim().toLowerCase()
-    if (!currentOffice && !officeKey) return false
-
     // Scan all logs in reverse to find the most recent "transferred to" log
     // sent by the current office. We don't restrict to the very last log
     // because subsequent logs (e.g. "Received" by the destination) would
@@ -906,17 +975,10 @@ export default function ApprovalsPage({
       const label = String(log?.label || '').toLowerCase().trim()
       if (!label.startsWith('transferred to')) continue
 
-      const byOffice = String(log?.byOffice || '').toLowerCase().trim()
+      const byOffice = String(log?.byOffice || '').trim()
       if (!byOffice) continue
 
-      const matchesByName = currentOffice
-        ? (byOffice === currentOffice || byOffice.includes(currentOffice) || currentOffice.includes(byOffice))
-        : false
-      const matchesByKey = officeKey
-        ? (byOffice === officeKey || byOffice.includes(officeKey) || officeKey.includes(byOffice))
-        : false
-
-      if (matchesByName || matchesByKey) return true
+      if (officeMatches(byOffice, actionOfficeLower) || officeMatches(byOffice, currentOfficeKey)) return true
     }
 
     return false
@@ -924,27 +986,17 @@ export default function ApprovalsPage({
 
   const isTransferReceivedByDestination = (row: ApprovalRow) => {
     const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : []
-    const currentOffice = String(actionOfficeLower || '').trim().toLowerCase()
-    const officeKey = String(currentOfficeKey || '').trim().toLowerCase()
-
-    if (!currentOffice && !officeKey) return false
+    if (!actionOfficeLower && !currentOfficeKey) return false
 
     // Scan backwards to find the most recent transfer from *this* office
     for (let i = rawLogs.length - 1; i >= 0; i--) {
       const log = rawLogs[i]
       const label = String(log?.label || '').toLowerCase().trim()
-      const byOffice = String(log?.byOffice || '').toLowerCase().trim()
+      const byOffice = String(log?.byOffice || '').trim()
 
       if (!label.startsWith('transferred to')) continue
 
-      const matchesByName = currentOffice
-        ? (byOffice === currentOffice || byOffice.includes(currentOffice) || currentOffice.includes(byOffice))
-        : false
-      const matchesByKey = officeKey
-        ? (byOffice === officeKey || byOffice.includes(officeKey) || officeKey.includes(byOffice))
-        : false
-
-      if (matchesByName || matchesByKey) {
+      if (officeMatches(byOffice, actionOfficeLower) || officeMatches(byOffice, currentOfficeKey)) {
         // Found the last transfer from us. Now check logs AFTER this transfer.
         for (let j = i + 1; j < rawLogs.length; j++) {
           const nextLogLabel = String(rawLogs[j]?.label || '').toLowerCase().trim()
@@ -1021,13 +1073,13 @@ export default function ApprovalsPage({
       const isReviewList = String(title || '').trim().toLowerCase() === 'review'
 
       const procurementOfficeLower = procurementOffice.toLowerCase()
-      const isGso = procurementOfficeLower.includes('gso')
+      const isGso = procurementOfficeLower.includes('gso') || procurementOfficeLower.includes('general services') || procurementOfficeLower.includes('pgso')
       const isBac =
         procurementOfficeLower.includes('bac') ||
         procurementOfficeLower.includes('bids') ||
         procurementOfficeLower.includes('awards')
       const isBudget = procurementOfficeLower.includes('budget')
-      const isPto = procurementOfficeLower.includes('pto')
+      const isPto = procurementOfficeLower.includes('pto') || procurementOfficeLower.includes('treasurer')
 
       const hasAnyTransferredLog = (doc: { logs?: any[], subDocuments?: any[] } | null | undefined) => {
         const rawLogs = Array.isArray(doc?.logs) ? (doc?.logs as any[]) : []
@@ -1099,8 +1151,8 @@ export default function ApprovalsPage({
             if (label.startsWith('transferred to')) {
               const after = label.slice('transferred to'.length).trim()
               const match = after.match(/^([^(:]+)/)
-              const dest = String(match ? match[1] : after).trim().toLowerCase()
-              return dest === targetOffice || dest.includes(targetOffice)
+              const dest = String(match ? match[1] : after).trim()
+              return officeMatches(dest, targetOffice) || officeMatches(dest, procurementOfficeLower)
             }
           }
         }
@@ -1249,8 +1301,8 @@ export default function ApprovalsPage({
                   if (label.startsWith('transferred to')) {
                     const after = label.slice('transferred to'.length).trim()
                     const match = after.match(/^([^(:]+)/)
-                    const dest = String(match ? match[1] : after).trim().toLowerCase()
-                    return dest === targetOffice || dest.includes(targetOffice)
+                    const dest = String(match ? match[1] : after).trim()
+                    return officeMatches(dest, targetOffice) || officeMatches(dest, procurementOfficeLower)
                   }
                 }
               }
@@ -2249,7 +2301,14 @@ export default function ApprovalsPage({
                     const logsBefore = logs.slice(terminalIdx + 1);
                     const receivedLog = logsBefore.find(l => String(l?.label || '').toLowerCase().startsWith('received'));
                     if (receivedLog) {
-                      const offKey = String(receivedLog.byOffice || '').trim().toUpperCase();
+                      const offKeyRaw = String(receivedLog.byOffice || '').trim().toUpperCase();
+                      // Resolve against full office names in the map
+                      const offKey = (() => {
+                        if (transferTasksByOffice[offKeyRaw] !== undefined) return offKeyRaw
+                        const allKeys = Object.keys(transferTasksByOffice)
+                        const m = allKeys.find(k => officeMatches(k, offKeyRaw))
+                        return m || offKeyRaw
+                      })();
                       const lbl = String(receivedLog.label || '');
                       const taskName = (() => {
                         const mFor = lbl.match(/received(?:\s+by\s+[^(:]+)?\s+for\s+([^(:)]+)/i);
@@ -2300,8 +2359,15 @@ export default function ApprovalsPage({
                   }
 
                   const lastReceivedLog = latestMovementLog;
-                  const officeOfTask = String(lastReceivedLog.byOffice || '').toUpperCase();
-                  if (!officeOfTask) return { isExceeded: false, elapsedText: '' };
+                  const officeOfTaskRaw = String(lastReceivedLog.byOffice || '').toUpperCase();
+                  if (!officeOfTaskRaw) return { isExceeded: false, elapsedText: '' };
+                  // Resolve short key (e.g. "BUDGET", "PTO") against full office names in the map
+                  const officeOfTask = (() => {
+                    if (transferTasksByOffice[officeOfTaskRaw] !== undefined) return officeOfTaskRaw
+                    const allKeys = Object.keys(transferTasksByOffice)
+                    const m = allKeys.find(k => officeMatches(k, officeOfTaskRaw))
+                    return m || officeOfTaskRaw
+                  })();
 
                   const label = String(lastReceivedLog.label || '');
                   const taskFromLabel = (() => {
@@ -2836,7 +2902,7 @@ export default function ApprovalsPage({
 
                 {preview.type === 'PO' ? (
                   <>
-                    {(actionIsGso || actionIsAdmin || hasPrivilege("PO Preparation") || hasPrivilege("Update PO") || hasPrivilege("Edit PO")) ? (
+                    {(actionIsGso || actionIsAdmin || hasPrivilege("PO Preparation") || hasPrivilege("Update PO") || hasPrivilege("Edit PO") || hasPrivilege("Update PR")) ? (
                       <button
                         type="button"
                         onClick={() => setIsEditPoModalOpen(true)}
@@ -3976,11 +4042,52 @@ export default function ApprovalsPage({
                                         labelLower.includes('approved') ||
                                         labelLower.includes('returned') ||
                                         labelLower.includes('completed') ||
-                                        labelLower.includes('discontinued')
+                                        labelLower.includes('discontinued') ||
+                                        labelLower.includes('cancelled') ||
+                                        labelLower.includes('canceled')
                                       )
                                     }
                                     const isStageEndLog = (labelRaw: string) => {
                                       return isTransferLog(labelRaw) || isTerminalActionLog(labelRaw)
+                                    }
+
+                                    const isPrevalStartLog = (labelRaw: string) => {
+                                      const labelLower = String(labelRaw || '').trim().toLowerCase()
+                                      if (!labelLower) return false
+                                      return (
+                                        labelLower.startsWith('submitted') ||
+                                        labelLower.includes('submitted') ||
+                                        labelLower.startsWith('created') ||
+                                        labelLower.includes('created') ||
+                                        labelLower.startsWith('remarks') ||
+                                        labelLower.includes('complied') ||
+                                        labelLower.startsWith('resubmitted') ||
+                                        labelLower.startsWith('re-submitted') ||
+                                        labelLower.startsWith('updated') ||
+                                        isReceivedLog(labelRaw)
+                                      )
+                                    }
+
+                                    const isPrevalEndLog = (labelRaw: string) => {
+                                      const labelLower = String(labelRaw || '').trim().toLowerCase()
+                                      if (!labelLower) return false
+                                      return (
+                                        labelLower.includes('approved') ||
+                                        labelLower.includes('returned') ||
+                                        labelLower.includes('completed') ||
+                                        labelLower.includes('discontinued') ||
+                                        labelLower.includes('cancelled') ||
+                                        labelLower.includes('canceled') ||
+                                        isTransferLog(labelRaw)
+                                      )
+                                    }
+
+                                    const isStageStartLog = (labelRaw: string) => {
+                                      return historyTab === 'transactions' ? isReceivedLog(labelRaw) : isPrevalStartLog(labelRaw)
+                                    }
+
+                                    const isStageFinishLog = (labelRaw: string) => {
+                                      return historyTab === 'transactions' ? isStageEndLog(labelRaw) : isPrevalEndLog(labelRaw)
                                     }
 
                                     const transactionFilteredSelected =
@@ -4001,12 +4108,16 @@ export default function ApprovalsPage({
                                     for (let i = 0; i < transactionFilteredSelected.length; i += 1) {
                                       if (coveredIdx.has(i)) continue
                                       const current = transactionFilteredSelected[i]
-                                      if (!isReceivedLog(String(current?.label || ''))) continue
+                                      if (!isStageStartLog(String(current?.label || ''))) continue
 
                                       let endIdx = -1
                                       for (let j = i + 1; j < transactionFilteredSelected.length; j += 1) {
-                                        if (isStageEndLog(String(transactionFilteredSelected[j]?.label || ''))) {
+                                        const nextLabel = String(transactionFilteredSelected[j]?.label || '')
+                                        if (isStageFinishLog(nextLabel)) {
                                           endIdx = j
+                                          break
+                                        }
+                                        if (isStageStartLog(nextLabel)) {
                                           break
                                         }
                                       }
@@ -4020,9 +4131,9 @@ export default function ApprovalsPage({
 
                                       // Check if this specific stage (From Received to Transfer) is exceeded
                                       const isStageExceeded = (() => {
-                                        const receivedLog = transactionFilteredSelected[i]
-                                        const offKey = String(receivedLog.byOffice || '').trim().toUpperCase()
-                                        const lbl = String(receivedLog.label || '')
+                                        const startLog = transactionFilteredSelected[i]
+                                        const offKey = String(startLog.byOffice || (historyTab === 'prevalidation' ? 'GSO' : '')).trim().toUpperCase()
+                                        const lbl = String(startLog.label || '')
                                         const taskName = (() => {
                                           const mFor = lbl.match(/received(?:\s+by\s+[^(:]+)?\s+for\s+([^(:]+)\s*\)?/)
                                           if (mFor?.[1]) return mFor[1].trim()
@@ -4060,11 +4171,10 @@ export default function ApprovalsPage({
                                       }
                                     }
 
-                                    const totalMinutesSum = Array.from(spanByStartIdx.values()).reduce(
-                                      (sum, it) => sum + Math.max(0, Math.floor(it.durationMs / (1000 * 60))),
+                                    const totalMs = Array.from(spanByStartIdx.values()).reduce(
+                                      (sum, it) => sum + Math.max(0, it.durationMs),
                                       0
                                     )
-                                    const totalMs = totalMinutesSum * 1000 * 60
 
                                     if (!transactionFilteredSelected.length) {
                                       return (
@@ -4494,6 +4604,7 @@ export default function ApprovalsPage({
               setTransferRow(null)
               setTransferTask("")
               setTransferRemarks("")
+              setTransferTaskDropdownOpen(false)
             }
           }}
         >
@@ -4531,7 +4642,7 @@ export default function ApprovalsPage({
                   <div className="space-y-1.5">
                     <div className="text-sm font-semibold text-slate-700">Task / Remarks</div>
                     {(() => {
-                      const DEFAULT_TASKS = [
+                      const DEFAULT_TRANSFER_TASKS = [
                         "For PR number",
                         "For OBR signing",
                         "For PR / OBR signing",
@@ -4547,49 +4658,82 @@ export default function ApprovalsPage({
                         "For check advice",
                         "For releasing of checks",
                       ]
-                      const officeTasks = (transferDest.toUpperCase() === 'RETURNED'
-                        ? (transferTasksByOffice[currentOfficeKey] || [])
-                        : (transferTasksByOffice[String(transferDest || '').toUpperCase()] || [])
-                      ).map((t) => String(t?.task || '').trim()).filter(Boolean)
-                      // Merge: office-specific tasks first, then defaults — case-insensitive dedup
-                      const seen = new Set<string>()
-                      const taskList: string[] = []
-                      for (const t of [...officeTasks, ...DEFAULT_TASKS]) {
-                        if (!seen.has(t.toLowerCase())) {
-                          seen.add(t.toLowerCase())
-                          taskList.push(t)
-                        }
-                      }
 
+                      const isDisabled = !String(transferDest || '').trim()
                       return (
                         <div className="space-y-2">
-                          <select
-                            id="transfer-task-select"
-                            value={transferTask}
-                            onChange={(e) => setTransferTask(e.target.value)}
-                            disabled={!String(transferDest || '').trim()}
-                            aria-label="Task / Remarks"
-                            className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
-                          >
-                            <option value="">Select Task / Remarks</option>
-                            {taskList.map((t, i) => (
-                              <option key={i} value={t}>
-                                {t}
-                              </option>
-                            ))}
-                            <option value="__others__">Others / Custom Remarks</option>
-                          </select>
+                          <div className="relative">
+                            {/* Custom styled dropdown trigger */}
+                            <button
+                              ref={transferTaskBtnRef}
+                              id="transfer-task-select"
+                              type="button"
+                              aria-label="Task / Remarks"
+                              disabled={isDisabled}
+                              onClick={() => {
+                                if (!isDisabled) {
+                                  if (transferTaskBtnRef.current) {
+                                    setTransferTaskBtnRect(transferTaskBtnRef.current.getBoundingClientRect())
+                                  }
+                                  setTransferTaskDropdownOpen(o => !o)
+                                }
+                              }}
+                              className={[
+                                "flex h-10 w-full items-center justify-between rounded-md border bg-white px-4 py-2 text-left text-sm focus:outline-none focus:ring-1 focus:ring-sky-500",
+                                isDisabled
+                                  ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60"
+                                  : "cursor-pointer border-slate-200 hover:border-sky-400",
+                                !transferTask ? "text-slate-400" : "text-slate-900",
+                              ].join(" ")}
+                            >
+                              <span className="truncate">{transferTask || "Select Task / Remarks"}</span>
+                              <svg
+                                className={`ml-2 h-4 w-4 flex-shrink-0 text-slate-500 transition-transform ${transferTaskDropdownOpen ? "rotate-180" : ""}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
 
-                          {transferTask === "__others__" && (
-                            <input
-                              type="text"
-                              value={transferRemarks}
-                              onChange={(e) => setTransferRemarks(e.target.value)}
-                              placeholder="Enter custom remarks..."
-                              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                              autoFocus
-                            />
-                          )}
+                            {/* Fixed-position dropdown — escapes overflow-hidden modal */}
+                            {transferTaskDropdownOpen && !isDisabled && transferTaskBtnRect && (
+                              <>
+                                {/* Backdrop to close on outside click */}
+                                <div
+                                  className="fixed inset-0 z-[999]"
+                                  onClick={() => setTransferTaskDropdownOpen(false)}
+                                />
+                                <div
+                                  style={{
+                                    position: 'fixed',
+                                    top: transferTaskBtnRect.bottom + 4,
+                                    left: transferTaskBtnRect.left,
+                                    width: transferTaskBtnRect.width,
+                                    maxHeight: 280,
+                                    overflowY: 'auto',
+                                    zIndex: 1000,
+                                  }}
+                                  className="rounded-md border border-slate-200 bg-white shadow-xl"
+                                >
+                                  {DEFAULT_TRANSFER_TASKS.map((t, i) => (
+                                    <div
+                                      key={i}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => { setTransferTask(t); setTransferTaskDropdownOpen(false) }}
+                                      className={[
+                                        "cursor-pointer px-4 py-2.5 text-sm leading-snug",
+                                        transferTask === t
+                                          ? "bg-sky-600 text-white font-medium"
+                                          : "text-slate-800 hover:bg-sky-50 hover:text-sky-700",
+                                      ].join(" ")}
+                                    >
+                                      {t}
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       )
                     })()}
@@ -4665,7 +4809,7 @@ export default function ApprovalsPage({
                 <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
                   <button
                     type="button"
-                    onClick={() => { setTransferRow(null); setTransferTask(""); setTransferRemarks(""); }}
+                    onClick={() => { setTransferRow(null); setTransferTask(""); setTransferRemarks(""); setTransferTaskDropdownOpen(false); }}
                     className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus-visible:outline-none"
                   >
                     Cancel
@@ -4680,6 +4824,7 @@ export default function ApprovalsPage({
                       setTransferRow(null)
                       setTransferTask("")
                       setTransferRemarks("")
+                      setTransferTaskDropdownOpen(false)
 
                       // Handle RETURNED option
                       if (dest.toUpperCase() === 'RETURNED') {
