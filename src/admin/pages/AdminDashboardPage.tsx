@@ -8,6 +8,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  AlertTriangle,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import ApprovalsPage from "./ApprovalsPage"
@@ -15,6 +16,7 @@ import AllDocumentsPage from "./AllDocumentsPage"
 import OfficesPage from "./OfficesPage"
 import ReportsPage from "./ReportsPage"
 import SettingsPage from "./SettingsPage"
+import OverduePage from "./OverduePage"
 import API_URL, { apiFetch } from "../../lib/apiFetch"
 
 type OfficeSummary = {
@@ -46,6 +48,7 @@ type SystemAdminRoute =
   | "offices"
   | "reports"
   | "settings"
+  | "overdue"
 
 export default function AdminDashboardPage({ onLogout }: AdminDashboardPageProps) {
   const [route, setRoute] = useState<SystemAdminRoute>("dashboard")
@@ -82,7 +85,9 @@ export default function AdminDashboardPage({ onLogout }: AdminDashboardPageProps
             ? "Offices"
             : route === "reports"
               ? "Reports"
-              : "Settings"
+              : route === "overdue"
+                ? "Overdue Documents"
+                : "Settings"
 
   function navClass(isActive: boolean) {
     return isActive
@@ -161,6 +166,26 @@ export default function AdminDashboardPage({ onLogout }: AdminDashboardPageProps
               >
                 <Files className={`size-4 transition-colors ${route === "all-documents" ? "text-blue-600" : "text-slate-400 group-hover:text-blue-600"}`} />
                 {isSidebarCollapsed ? null : "All Documents"}
+              </button>
+              <button
+                className={isSidebarCollapsed
+                  ? `group flex w-full items-center gap-3 rounded-r-lg border-l-[3px] justify-center px-2 rounded-lg border-l-0 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none ${
+                    route === "overdue"
+                      ? "border-l-amber-500 bg-amber-50/90 text-amber-700 shadow-xs font-semibold"
+                      : "border-l-transparent text-slate-600 hover:border-l-amber-400 hover:bg-amber-50/40 hover:text-amber-700"
+                  }`
+                  : `group flex w-full items-center gap-3 rounded-r-lg border-l-[3px] px-3.5 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none ${
+                    route === "overdue"
+                      ? "border-l-amber-500 bg-amber-50/90 text-amber-700 shadow-xs font-semibold"
+                      : "border-l-transparent text-slate-600 hover:border-l-amber-400 hover:bg-amber-50/40 hover:text-amber-700"
+                  }`
+                }
+                type="button"
+                onClick={() => setRoute("overdue")}
+                title="Overdue Documents"
+              >
+                <AlertTriangle className={`size-4 transition-colors ${route === "overdue" ? "text-amber-600" : "text-slate-400 group-hover:text-amber-600"}`} />
+                {isSidebarCollapsed ? null : "Overdue Documents"}
               </button>
               <button
                 className={navButtonClass(route === "offices")}
@@ -278,6 +303,17 @@ export default function AdminDashboardPage({ onLogout }: AdminDashboardPageProps
                   Documents
                 </button>
                 <button
+                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${route === "overdue"
+                    ? "border-l-[3px] border-l-amber-500 bg-amber-50 text-amber-700 shadow-xs"
+                    : "text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+                    }`}
+                  onClick={() => setRoute("overdue")}
+                  type="button"
+                >
+                  <AlertTriangle className="size-3.5" />
+                  Overdue
+                </button>
+                <button
                   className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${route === "offices"
                     ? "border-l-[3px] border-l-blue-600 bg-blue-50 text-blue-700 shadow-xs"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -350,6 +386,10 @@ export default function AdminDashboardPage({ onLogout }: AdminDashboardPageProps
           ) : route === "all-documents" ? (
             <div className="w-full px-4 py-6 lg:px-8">
               <AllDocumentsPage />
+            </div>
+          ) : route === "overdue" ? (
+            <div className="w-full px-4 py-6 lg:px-8">
+              <OverduePage />
             </div>
           ) : route === "settings" ? (
             <div className="w-full px-4 py-6 lg:px-8">

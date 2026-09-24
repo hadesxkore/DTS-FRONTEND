@@ -343,6 +343,11 @@ export function useSocket(
           console.log('Office notification received:', data?.title);
           const title = data?.title || '📨 Office Notification';
           const message = data?.message || '';
+          const titleLower = title.toLowerCase();
+          const isReturned =
+            titleLower.includes('returned') ||
+            String(data?.type || '').toLowerCase().includes('return') ||
+            message.toLowerCase().includes('returned');
 
           showDesktopNotification({
             title,
@@ -350,7 +355,11 @@ export function useSocket(
             tag: `office-notif-${data?.trackingNo || Date.now()}`,
           });
 
-          toast.info(`${title}: ${message}`);
+          if (isReturned) {
+            toast.error(`${title}: ${message}`);
+          } else {
+            toast.info(`${title}: ${message}`);
+          }
           handlersRef.current?.onOfficeNotification?.(data);
         });
 
@@ -359,6 +368,12 @@ export function useSocket(
           console.log('User targeted notification event received:', data?.title);
           const title = data?.title || '🔔 Notification';
           const message = data?.message || '';
+          const titleLower = title.toLowerCase();
+          const isReturned =
+            titleLower.includes('returned') ||
+            String(data?.type || '').toLowerCase().includes('return') ||
+            message.toLowerCase().startsWith('returned') ||
+            message.toLowerCase().includes('was returned');
 
           showDesktopNotification({
             title,
@@ -366,7 +381,11 @@ export function useSocket(
             tag: `user-notif-${data?.trackingNo || Date.now()}`,
           });
 
-          toast.info(`${title}: ${message}`);
+          if (isReturned) {
+            toast.error(`${title}: ${message}`);
+          } else {
+            toast.info(`${title}: ${message}`);
+          }
           handlersRef.current?.onUserNotification?.(data);
         });
 

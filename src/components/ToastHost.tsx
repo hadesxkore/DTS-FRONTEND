@@ -128,7 +128,8 @@ export default function ToastHost() {
             ? "bg-rose-500"
             : "bg-blue-500"
 
-        const badgeText = isSuccess ? "Success" : isError ? "System Alert" : "Notification"
+        const isReturnedNotif = isError && t.message.toLowerCase().includes('returned')
+        const badgeText = isSuccess ? "Success" : isError ? (isReturnedNotif ? "Returned" : "System Alert") : "Notification"
 
         // Split message if it contains '•' dividers for clean formatted layout
         const parts = t.message.split(/\s*•\s*/).filter(Boolean)
