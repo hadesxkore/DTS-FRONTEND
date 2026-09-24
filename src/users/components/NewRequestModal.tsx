@@ -144,7 +144,7 @@ export default function NewRequestModal({
   const [deptHeadName, setDeptHeadName] = useState("")
   const [deptHeadDesignation, setDeptHeadDesignation] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false)
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false)
   const [pendingSubmitPayload, setPendingSubmitPayload] = useState<NewRequestPayload | null>(null)
   const [formData, setFormData] = useState(defaultFormData)
 
@@ -2240,13 +2240,8 @@ export default function NewRequestModal({
                   obrEnabled,
                 }
 
-                if (submitLabel === "Update") {
-                  setPendingSubmitPayload(payload)
-                  setConfirmUpdateOpen(true)
-                  return
-                }
-
-                onSubmit?.(payload)
+                setPendingSubmitPayload(payload)
+                setConfirmSubmitOpen(true)
               }}
               className="inline-flex h-9 items-center justify-center rounded bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
             >
@@ -2255,28 +2250,52 @@ export default function NewRequestModal({
           </div>
         </div>
 
-        {confirmUpdateOpen ? (
+        {confirmSubmitOpen ? (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
             role="dialog"
             aria-modal="true"
             onMouseDown={(e) => {
               if (e.currentTarget === e.target) {
-                setConfirmUpdateOpen(false)
+                setConfirmSubmitOpen(false)
                 setPendingSubmitPayload(null)
               }
             }}
           >
             <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
               <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-                <div className="text-base font-semibold text-slate-900">Confirm Update</div>
+                <div className="text-base font-semibold text-slate-900">
+                  {submitLabel === "Update" ? "Confirm Update" : "Confirm Submit Request"}
+                </div>
               </div>
-              <div className="px-4 py-4 text-sm text-slate-700">Are you sure you want to update this request?</div>
-              <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+              <div className="px-5 py-4 text-sm text-slate-700 space-y-3">
+                <p>
+                  Are you sure you want to {submitLabel === "Update" ? "update" : "submit"} this request?
+                </p>
+                {pendingSubmitPayload && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-600 space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-700">Department:</span>
+                      <span className="text-slate-800 font-medium">{pendingSubmitPayload.department || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-700">Amount:</span>
+                      <span className="text-sky-700 font-semibold">{pendingSubmitPayload.amount || "N/A"}</span>
+                    </div>
+                    {pendingSubmitPayload.purpose && (
+                      <div className="pt-1 border-t border-slate-200/60 text-slate-600">
+                        <span className="font-semibold text-slate-700">Purpose:</span>{" "}
+                        <span className="line-clamp-2">{pendingSubmitPayload.purpose}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setConfirmUpdateOpen(false)
+                    setConfirmSubmitOpen(false)
                     setPendingSubmitPayload(null)
                   }}
                   className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus-visible:outline-none"
@@ -2287,14 +2306,14 @@ export default function NewRequestModal({
                   type="button"
                   onClick={() => {
                     const payload = pendingSubmitPayload
-                    setConfirmUpdateOpen(false)
+                    setConfirmSubmitOpen(false)
                     setPendingSubmitPayload(null)
                     if (!payload) return
                     onSubmit?.(payload)
                   }}
-                  className="inline-flex h-9 items-center justify-center rounded bg-sky-600 px-4 text-sm font-medium text-white transition hover:bg-sky-700"
+                  className="inline-flex h-9 items-center justify-center rounded bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700"
                 >
-                  Confirm
+                  {submitLabel === "Update" ? "Confirm Update" : "Confirm & Submit"}
                 </button>
               </div>
             </div>

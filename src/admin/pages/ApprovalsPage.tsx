@@ -362,6 +362,14 @@ export default function ApprovalsPage({
   const [isEditPoModalOpen, setIsEditPoModalOpen] = useState(false)
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false)
   const [hasDraft, setHasDraft] = useState(false)
+  const [confirmRoutingSlipModal, setConfirmRoutingSlipModal] = useState<{
+    docId: string
+    trackingNo: string
+    newVal: string
+    prevVal: string
+    row: ApprovalRow
+  } | null>(null)
+  const [isUpdatingRoutingSlip, setIsUpdatingRoutingSlip] = useState(false)
 
   const checkDraft = useCallback(() => {
     try {
@@ -383,6 +391,37 @@ export default function ApprovalsPage({
       window.removeEventListener("storage", checkDraft)
     }
   }, [checkDraft])
+
+  const handleConfirmRoutingSlipUpdate = async () => {
+    if (!confirmRoutingSlipModal) return
+    const { docId, newVal, row } = confirmRoutingSlipModal
+    try {
+      setIsUpdatingRoutingSlip(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/documents/${docId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gsoRoutingSlip: newVal }),
+      })
+      if (!response.ok) {
+        const msg = await response.text().catch(() => "")
+        toast.error(`Failed to update routing slip: ${msg || response.statusText}`)
+      } else {
+        setRoutingSlipMap((prev) => ({ ...prev, [docId]: newVal }))
+        row.gsoRoutingSlip = newVal
+        if (row.doc) row.doc.gsoRoutingSlip = newVal
+        toast.success("Routing slip updated")
+        setConfirmRoutingSlipModal(null)
+      }
+    } catch {
+      toast.error("Network error updating routing slip")
+    } finally {
+      setIsUpdatingRoutingSlip(false)
+    }
+  }
 
   const handleCreateNewRequest = async (payload: NewRequestPayload) => {
     try {
@@ -499,6 +538,7 @@ export default function ApprovalsPage({
       Array<{ taskId?: number; task?: string; duration?: string; status?: string }>
     >
   >({})
+  const [globalTasksList, setGlobalTasksList] = useState<string[]>([])
   const [officeHeads, setOfficeHeads] = useState<Record<string, { head: string; designation: string }>>({})
   const [transferRemarks, setTransferRemarks] = useState("")
   const [subDocCount, setSubDocCount] = useState<number>(0)
@@ -744,11 +784,29 @@ export default function ApprovalsPage({
   const fetchOfficesAndTasks = useCallback(async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_URL}/offices`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      const [response, tasksRes] = await Promise.all([
+        fetch(`${API_URL}/offices`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
+        fetch(`${API_URL}/tasks`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }).catch(() => null),
+      ])
+
+      if (tasksRes && tasksRes.ok) {
+        const tData = await tasksRes.json().catch(() => null)
+        const tList = (tData?.tasks || [])
+          .filter((t: any) => t.status !== 'archived')
+          .map((t: any) => String(t.task || '').trim())
+          .filter(Boolean)
+        if (tList.length > 0) {
+          setGlobalTasksList(tList)
+        }
+      }
 
       if (!response.ok) return
       const data = (await response.json()) as {
@@ -1021,6 +1079,44 @@ export default function ApprovalsPage({
   const isTerminalStatus = (statusRaw: string) => {
     const s = String(statusRaw || '').trim().toLowerCase()
     return s === 'completed' || s === 'returned' || s === 'discontinued' || s === 'cancelled' || s === 'canceled'
+  }
+
+  const hasBacTransferredToGsoForPo = (row: ApprovalRow) => {
+    // 1. If PO data / model already exists
+    const hasPoData = Boolean(
+      (row.doc as any)?.poModel ||
+      (row.doc as any)?.poData ||
+      (row.doc as any)?.poNo ||
+      (row.doc as any)?.poNumber
+    )
+    if (hasPoData) return true
+
+    const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : Array.isArray(row.doc?.logs) ? (row.doc.logs as any[]) : []
+
+    // 2. Check if there's any log where BAC transferred to GSO or mentioned PO Preparation
+    const hasBacTransfer = rawLogs.some((l) => {
+      const label = String(l?.label || '').toLowerCase().trim()
+      const byOffice = String(l?.byOffice || '').toLowerCase().trim()
+
+      const isByBac = byOffice.includes('bac') || byOffice.includes('bids') || byOffice.includes('awards')
+      const mentionsGso = label.includes('gso') || label.includes('general services')
+      const mentionsPo = label.includes('po preparation') || label.includes('for po') || label.includes('purchase order')
+
+      if (isByBac && (mentionsGso || mentionsPo || label.startsWith('transferred to'))) {
+        return true
+      }
+      if (mentionsPo) {
+        return true
+      }
+      return false
+    })
+
+    if (hasBacTransfer) return true
+
+    // 3. If currently viewed by BAC office
+    if (actionIsBac) return true
+
+    return false
   }
 
   const isInCurrentOfficeScope = (docStatus: string) => {
@@ -2516,7 +2612,7 @@ export default function ApprovalsPage({
                             DV
                           </button>
                         )}
-                        {(actionIsGso || actionIsAdmin || Boolean(String(r.supplier || (r.doc as any)?.supplier || '').trim())) && (
+                        {hasBacTransferredToGsoForPo(r) && (
                           <button
                             type="button"
                             onClick={() => setPreview({ type: "PO", row: r })}
@@ -2543,35 +2639,19 @@ export default function ApprovalsPage({
                       <td className="px-3 py-3 align-top">
                         <select
                           value={routingSlipMap[r.doc._id] ?? r.gsoRoutingSlip ?? ""}
-                          onChange={async (e) => {
+                          onChange={(e) => {
                             const val = e.target.value
                             const prevVal = routingSlipMap[r.doc._id] ?? r.gsoRoutingSlip ?? ""
-                            setRoutingSlipMap((prev) => ({ ...prev, [r.doc._id]: val }))
-                            try {
-                              const token = localStorage.getItem('token')
-                              const response = await fetch(`${API_URL}/documents/${r.doc._id}`, {
-                                method: 'PATCH',
-                                headers: {
-                                  Authorization: `Bearer ${token}`,
-                                  'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ gsoRoutingSlip: val }),
-                              })
-                              if (!response.ok) {
-                                const msg = await response.text().catch(() => "")
-                                setRoutingSlipMap((prev) => ({ ...prev, [r.doc._id]: prevVal }))
-                                toast.error(`Failed to update routing slip: ${msg || response.statusText}`)
-                              } else {
-                                toast.success("Routing slip updated")
-                                r.gsoRoutingSlip = val
-                                if (r.doc) r.doc.gsoRoutingSlip = val
-                              }
-                            } catch {
-                              setRoutingSlipMap((prev) => ({ ...prev, [r.doc._id]: prevVal }))
-                              toast.error("Network error updating routing slip")
-                            }
+                            if (val === prevVal) return
+                            setConfirmRoutingSlipModal({
+                              docId: r.doc._id,
+                              trackingNo: r.trackingNo,
+                              newVal: val,
+                              prevVal,
+                              row: r,
+                            })
                           }}
-                          className="h-8 w-full min-w-[180px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900 focus:outline-none focus-visible:outline-none"
+                          className="h-8 w-full min-w-[180px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900 focus:outline-none focus-visible:outline-none cursor-pointer"
                         >
                           <option value="">— Select —</option>
                           <option value="IT AND EQUIPMENT">IT AND EQUIPMENT</option>
@@ -4658,6 +4738,14 @@ export default function ApprovalsPage({
                         "For check advice",
                         "For releasing of checks",
                       ]
+                      const destKey = String(transferDest || '').trim().toUpperCase()
+                      const officeTasks = transferTasksByOffice[destKey] || []
+                      const dynamicTaskNames = officeTasks.map(t => String(t.task || '').trim()).filter(Boolean)
+                      const displayTasks = globalTasksList.length > 0
+                        ? Array.from(new Set([...globalTasksList, ...dynamicTaskNames, ...DEFAULT_TRANSFER_TASKS]))
+                        : dynamicTaskNames.length > 0
+                          ? Array.from(new Set([...dynamicTaskNames, ...DEFAULT_TRANSFER_TASKS]))
+                          : DEFAULT_TRANSFER_TASKS
 
                       const isDisabled = !String(transferDest || '').trim()
                       return (
@@ -4715,7 +4803,7 @@ export default function ApprovalsPage({
                                   }}
                                   className="rounded-md border border-slate-200 bg-white shadow-xl"
                                 >
-                                  {DEFAULT_TRANSFER_TASKS.map((t, i) => (
+                                  {displayTasks.map((t, i) => (
                                     <div
                                       key={i}
                                       onMouseDown={(e) => e.preventDefault()}
@@ -5272,6 +5360,64 @@ export default function ApprovalsPage({
           initialData={previewPoModel}
           onSave={handleSavePo}
         />
+      ) : null}
+
+      {/* Confirm Routing Slip Modal */}
+      {confirmRoutingSlipModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.currentTarget === e.target && !isUpdatingRoutingSlip) {
+              setConfirmRoutingSlipModal(null)
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <div className="text-base font-semibold text-slate-900">Confirm Routing Slip Update</div>
+            </div>
+            <div className="px-5 py-4 text-sm text-slate-700 space-y-3">
+              <p>
+                Are you sure you want to update the routing slip for tracking number{" "}
+                <span className="font-semibold text-slate-900 font-mono">#{confirmRoutingSlipModal.trackingNo}</span>?
+              </p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-600 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">Previous:</span>
+                  <span className="text-slate-600 font-medium">
+                    {confirmRoutingSlipModal.prevVal || "— None —"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">New Category:</span>
+                  <span className="font-bold text-sky-700">
+                    {confirmRoutingSlipModal.newVal || "— None (Clear) —"}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+              <button
+                type="button"
+                disabled={isUpdatingRoutingSlip}
+                onClick={() => setConfirmRoutingSlipModal(null)}
+                className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus-visible:outline-none disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingRoutingSlip}
+                onClick={handleConfirmRoutingSlipUpdate}
+                className="inline-flex h-9 items-center justify-center rounded bg-sky-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-50"
+              >
+                {isUpdatingRoutingSlip ? "Updating…" : "Confirm Update"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div >
   )

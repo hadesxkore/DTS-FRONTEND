@@ -3,6 +3,7 @@ import EndUsersPage from "./EndUsersPage"
 import ProcurementUsersPage from "./ProcurementUsersPage"
 import DepartmentsList from "./DepartmentsList"
 import SourceOfFundsList from "./SourceOfFundsList"
+import OfficeTasksList from "./OfficeTasksList"
 import { toast } from "../../lib/toast"
 
 type OfficeType = "operating" | "viewing"
@@ -53,7 +54,7 @@ type OfficesPageProps = {
   title?: string
 }
 
-type OfficesTab = "offices" | "procurement-users" | "end-users" | "departments" | "source-of-funds"
+type OfficesTab = "offices" | "procurement-users" | "end-users" | "departments" | "source-of-funds" | "tasks"
 
 type OfficeFormModel = {
   name: string
@@ -682,7 +683,9 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
                   ? "Department end-user accounts and privileges"
                   : tab === "departments"
                     ? "Provincial department list & designations"
-                    : "Source of fund categories and allocation codes"}
+                    : tab === "source-of-funds"
+                      ? "Source of fund categories and allocation codes"
+                      : "Standard workflow tasks and duration limits"}
           </div>
         </div>
 
@@ -748,6 +751,16 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
               }`}
           >
             Source of Fund
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("tasks")}
+            className={`inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition focus:outline-none focus-visible:outline-none ${tab === "tasks"
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`}
+          >
+            Tasks
           </button>
         </div>
       </div>
@@ -1664,8 +1677,10 @@ export default function OfficesPage({ title = "Offices" }: OfficesPageProps) {
         <EndUsersPage />
       ) : tab === "departments" ? (
         <DepartmentsList />
-      ) : (
+      ) : tab === "source-of-funds" ? (
         <SourceOfFundsList />
+      ) : (
+        <OfficeTasksList />
       )}
     </div>
   )
