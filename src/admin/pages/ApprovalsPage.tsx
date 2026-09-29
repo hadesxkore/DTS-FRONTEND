@@ -2353,7 +2353,7 @@ export default function ApprovalsPage({
             <thead className="sticky top-0 z-10 bg-blue-600 text-white [&_th]:text-center">
               <tr className="border-b border-blue-700">
                 <th className="w-[120px] px-3 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
-                <th className="w-[140px] px-3 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
+                <th className="w-[1%] whitespace-nowrap px-3 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
                 <th className="w-[90px] px-3 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Requestor</th>
                 <th className="w-[90px] px-3 py-3.5 text-xs font-bold uppercase tracking-wider text-white">References</th>
                 <th className="w-[110px] px-3 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
@@ -2512,9 +2512,9 @@ export default function ApprovalsPage({
                 return (
                   <tr key={r.trackingNo} className={rowClass}>
                     <td className={`px-3 py-3 align-top text-xs whitespace-pre-line ${deadlineStatus.isExceeded ? 'text-white' : 'text-slate-700'}`}>{r.timestamp}</td>
-                    <td className="px-3 py-3 align-top text-xs font-medium">
+                    <td className={`w-[1%] whitespace-nowrap px-3 py-3 align-top text-xs font-medium`}>
                       <div
-                        className={`truncate ${deadlineStatus.isExceeded ? 'text-white font-bold' : 'text-slate-900'}`}
+                        className={`whitespace-nowrap ${deadlineStatus.isExceeded ? 'text-white font-bold' : 'text-slate-900 font-bold'}`}
                         title={`${r.trackingNo}${deadlineStatus.isExceeded ? ' (EXCEEDED DEADLINE)' : ''}${deadlineStatus.taskFromLabel ? ` - Task: ${deadlineStatus.taskFromLabel} at ${deadlineStatus.officeOfTask}` : ''}`}
                       >
                         {r.trackingNo}
@@ -2533,14 +2533,14 @@ export default function ApprovalsPage({
                         {r.requestor}
                       </div>
                     </td>
-                    <td className="px-3 py-3 align-top">
+                    <td className="w-[1%] whitespace-nowrap px-3 py-3 align-top">
                       <div className="space-y-1 text-[11px]">
-                        <div className={`truncate font-medium ${deadlineStatus.isExceeded ? 'text-white' : 'text-slate-900'}`} title={r.references.pr}>
+                        <div className={`whitespace-nowrap font-medium ${deadlineStatus.isExceeded ? 'text-white' : 'text-slate-900'}`} title={r.references.pr}>
                           {r.references.pr}
                         </div>
                         <div className="flex items-center gap-1">
                           <div
-                            className={`min-w-0 truncate font-medium ${deadlineStatus.isExceeded ? 'text-white' : 'text-slate-900'}`}
+                            className={`whitespace-nowrap font-medium ${deadlineStatus.isExceeded ? 'text-white' : 'text-slate-900'}`}
                             title={r.references.obr}
                           >
                             {r.referenceNos.obrNo.trim() ? `OBR No: ${r.referenceNos.obrNo}` : r.references.obr}
@@ -4506,7 +4506,7 @@ export default function ApprovalsPage({
                     onClick={async () => {
                       const row = receiveConfirmRow
                       const pickedTask = String(receiveTask || '').trim()
-                      const label = pickedTask ? `Received for ${pickedTask}` : receiveConfirmMessage
+                      const label = pickedTask ? `Received for ${pickedTask}` : 'Received'
                       setReceiveConfirmRow(null)
                       await submitRowLog(row, { label, color: 'bg-sky-600' })
                     }}

@@ -338,28 +338,51 @@ export function useSocket(
           handlersRef.current?.onAdminNotification?.(data);
         });
 
+        // ── Deduplication helper for toast / desktop notifications ──────────
+        const recentNotifications = new Map<string, number>();
+        const isDuplicateNotification = (key: string, intervalMs = 2500): boolean => {
+          const now = Date.now();
+          const lastTime = recentNotifications.get(key) || 0;
+          if (now - lastTime < intervalMs) {
+            return true;
+          }
+          recentNotifications.set(key, now);
+          // Periodically clean up old entries
+          if (recentNotifications.size > 100) {
+            for (const [k, v] of recentNotifications.entries()) {
+              if (now - v > 10000) recentNotifications.delete(k);
+            }
+          }
+          return false;
+        };
+
         // ── Office-targeted Notifications (only shown to office room members) ─
         socket.on('notification:office', (data: any) => {
           console.log('Office notification received:', data?.title);
           const title = data?.title || '📨 Office Notification';
           const message = data?.message || '';
-          const titleLower = title.toLowerCase();
-          const isReturned =
-            titleLower.includes('returned') ||
-            String(data?.type || '').toLowerCase().includes('return') ||
-            message.toLowerCase().includes('returned');
+          const notifKey = `office::${title}::${message}::${data?.trackingNo || data?.documentId || ''}`;
+          
+          if (!isDuplicateNotification(notifKey)) {
+            const titleLower = title.toLowerCase();
+            const isReturned =
+              titleLower.includes('returned') ||
+              String(data?.type || '').toLowerCase().includes('return') ||
+              message.toLowerCase().includes('returned');
 
-          showDesktopNotification({
-            title,
-            body: message,
-            tag: `office-notif-${data?.trackingNo || Date.now()}`,
-          });
+            showDesktopNotification({
+              title,
+              body: message,
+              tag: `office-notif-${data?.trackingNo || Date.now()}`,
+            });
 
-          if (isReturned) {
-            toast.error(`${title}: ${message}`);
-          } else {
-            toast.info(`${title}: ${message}`);
+            if (isReturned) {
+              toast.error(`${title}: ${message}`);
+            } else {
+              toast.info(`${title}: ${message}`);
+            }
           }
+
           handlersRef.current?.onOfficeNotification?.(data);
         });
 
@@ -368,24 +391,29 @@ export function useSocket(
           console.log('User targeted notification event received:', data?.title);
           const title = data?.title || '🔔 Notification';
           const message = data?.message || '';
-          const titleLower = title.toLowerCase();
-          const isReturned =
-            titleLower.includes('returned') ||
-            String(data?.type || '').toLowerCase().includes('return') ||
-            message.toLowerCase().startsWith('returned') ||
-            message.toLowerCase().includes('was returned');
+          const notifKey = `user::${title}::${message}::${data?.trackingNo || data?.documentId || ''}`;
 
-          showDesktopNotification({
-            title,
-            body: message,
-            tag: `user-notif-${data?.trackingNo || Date.now()}`,
-          });
+          if (!isDuplicateNotification(notifKey)) {
+            const titleLower = title.toLowerCase();
+            const isReturned =
+              titleLower.includes('returned') ||
+              String(data?.type || '').toLowerCase().includes('return') ||
+              message.toLowerCase().startsWith('returned') ||
+              message.toLowerCase().includes('was returned');
 
-          if (isReturned) {
-            toast.error(`${title}: ${message}`);
-          } else {
-            toast.info(`${title}: ${message}`);
+            showDesktopNotification({
+              title,
+              body: message,
+              tag: `user-notif-${data?.trackingNo || Date.now()}`,
+            });
+
+            if (isReturned) {
+              toast.error(`${title}: ${message}`);
+            } else {
+              toast.info(`${title}: ${message}`);
+            }
           }
+
           handlersRef.current?.onUserNotification?.(data);
         });
 

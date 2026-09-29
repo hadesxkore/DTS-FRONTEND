@@ -744,17 +744,17 @@ export default function ProcurementReviewPage({ officePrivileges: _officePrivile
             <table className="w-full min-w-[900px] text-left text-sm border-collapse border border-slate-200 [&_th]:border [&_th]:border-blue-700 [&_td]:border [&_td]:border-slate-200">
               <thead className="bg-blue-600 text-white">
                 <tr className="border-b border-blue-700">
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Requestor</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">References</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Requestor</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">References</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Purpose</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Attachments</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Source of Fund</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Action</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Attachments</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Source of Fund</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -787,18 +787,18 @@ export default function ProcurementReviewPage({ officePrivileges: _officePrivile
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 align-top text-xs text-slate-600 whitespace-nowrap">{ts}</td>
-                        <td className="px-4 py-3 align-top">
-                          <span className="font-medium text-sky-700">{r.trackingNo}</span>
+                        <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top text-xs text-slate-600">{ts}</td>
+                        <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top">
+                          <span className="font-bold text-sky-700 whitespace-nowrap">{r.trackingNo}</span>
                         </td>
-                        <td className="px-4 py-3 align-top text-slate-700">{r.requestor}</td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top text-slate-700">{r.requestor}</td>
+                        <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top">
                           <div className="flex flex-col gap-1">
-                            <span className="text-xs text-slate-600">PR: {r.prRef}</span>
-                            <span className="text-xs text-slate-600">OBR: {r.obrRef}</span>
+                            <span className="whitespace-nowrap text-xs text-slate-600">PR: {r.prRef}</span>
+                            <span className="whitespace-nowrap text-xs text-slate-600">OBR: {r.obrRef}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 align-top text-slate-700">{r.createdBy}</td>
+                        <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top text-slate-700">{r.createdBy}</td>
                         <td className="px-4 py-3 align-top max-w-[200px]">
                           <span className="line-clamp-2 text-slate-700" title={r.purpose}>{r.purpose}</span>
                         </td>

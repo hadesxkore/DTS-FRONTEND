@@ -2293,16 +2293,16 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
             <table className="w-full min-w-[1200px] text-left text-sm border-collapse border border-slate-200 [&_th]:border [&_th]:border-blue-700 [&_td]:border [&_td]:border-slate-200">
               <thead className="bg-blue-600 text-white [&_th]:text-center">
                 <tr className="border-b border-blue-700">
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white first:text-left first:pl-5">Tracking #</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">References</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white first:text-left first:pl-5">Tracking #</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">References</th>
                   <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Purpose</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Source of Fund</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Office (Requestor)</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Duration</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Status</th>
-                  <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white last:text-center last:pr-5">Action</th>
+                  <th className="w-[160px] px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Source of Fund</th>
+                  <th className="w-[160px] px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Office (Requestor)</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Duration</th>
+                  <th className="w-[270px] min-w-[270px] px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Status</th>
+                  <th className="w-[1%] whitespace-nowrap px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white last:text-center last:pr-5">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -2366,9 +2366,9 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
 
                   return (
                     <tr key={r.trackingNo} className={`hover:bg-slate-50 ${rowOverdueClass}`}>
-                      <td className="px-4 py-3 align-top font-medium text-slate-900">
+                      <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top font-medium text-slate-900">
                         <div
-                          className={`truncate text-base font-semibold ${deadlineStatus.isExceeded ? 'text-rose-600' : 'text-slate-900'}`}
+                          className={`whitespace-nowrap text-sm font-bold ${deadlineStatus.isExceeded ? 'text-rose-600' : 'text-slate-900'}`}
                           title={`${r.trackingNo}${deadlineStatus.isExceeded ? ' (EXCEEDED DEADLINE)' : ''}${deadlineStatus.taskFromLabel ? ` - Task: ${deadlineStatus.taskFromLabel} at ${deadlineStatus.officeOfTask}` : ''}`}
                         >
                           {r.trackingNo}
@@ -2384,13 +2384,13 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700">
+                      <td className="w-[1%] px-4 py-3 align-top text-slate-700">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 space-y-1">
+                          <div className="space-y-1">
                             <button
                               type="button"
                               onClick={() => setPreview({ type: 'PR', row: r })}
-                              className="block w-full text-left text-xs font-semibold text-sky-700 hover:underline focus:outline-none focus-visible:outline-none"
+                              className="block whitespace-nowrap text-left text-xs font-semibold text-sky-700 hover:underline focus:outline-none focus-visible:outline-none"
                               title="Preview PR"
                             >
                               PR No: <span className="font-normal text-slate-900">{prNo || '—'}</span>
@@ -2398,7 +2398,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                             <button
                               type="button"
                               onClick={() => setPreview({ type: 'OBR', row: r })}
-                              className="block w-full text-left text-xs font-semibold text-slate-900 hover:underline focus:outline-none focus-visible:outline-none"
+                              className="block whitespace-nowrap text-left text-xs font-semibold text-slate-900 hover:underline focus:outline-none focus-visible:outline-none"
                               title="Preview OBR"
                             >
                               OBR No: <span className="font-normal text-slate-900">{obrNo || '—'}</span>
@@ -2407,14 +2407,9 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                               const contactNum = String(r.doc?.contactNumber || '').trim()
                               if (!contactNum) return null
                               return (
-                                <>
-                                  <div className="h-1"></div>
-                                  <div className="h-1"></div>
-                                  <div className="h-1"></div>
-                                  <div className="text-xs text-slate-900">
-                                    <span className="font-semibold">Contact:</span> {contactNum}
-                                  </div>
-                                </>
+                                <div className="whitespace-nowrap text-xs text-slate-900 pt-1">
+                                  <span className="font-semibold">Contact:</span> {contactNum}
+                                </div>
                               )
                             })()}
                           </div>
@@ -2426,7 +2421,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                                 setEditPrNoValue(String((r.doc as any)?.prNo || '').trim())
                                 setEditObrNoValue(String((r.doc as any)?.obrNo || '').trim())
                               }}
-                              className="mt-0.5 inline-flex items-center text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:outline-none"
+                              className="mt-0.5 shrink-0 inline-flex items-center text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:outline-none"
                               title="Edit references"
                             >
                               <Pencil className="size-3" />
@@ -2434,10 +2429,10 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700">{r.purpose}</td>
-                      <td className="px-4 py-3 align-top text-slate-700">
+                      <td className="min-w-[200px] max-w-md px-4 py-3 align-top text-slate-700 break-words whitespace-normal leading-relaxed">{r.purpose}</td>
+                      <td className="w-[160px] px-4 py-3 align-top text-slate-700 break-words">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 truncate" title={r.sourceOfFund}>
+                          <div className="min-w-0 break-words whitespace-normal" title={r.sourceOfFund}>
                             {r.sourceOfFund}
                           </div>
                           {canEditFund ? (
@@ -2447,7 +2442,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                                 setEditFundRow(r)
                                 setEditFundValue(String(r.doc?.fund || '').trim())
                               }}
-                              className="mt-0.5 inline-flex items-center text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:outline-none"
+                              className="mt-0.5 shrink-0 inline-flex items-center text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:outline-none"
                               title="Edit source of fund"
                             >
                               <Pencil className="size-3" />
@@ -2455,9 +2450,9 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700">
+                      <td className="w-[160px] px-4 py-3 align-top text-slate-700 break-words">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 truncate" title={r.officeRequestor}>
+                          <div className="min-w-0 break-words whitespace-normal" title={r.officeRequestor}>
                             {r.officeRequestor}
                           </div>
                           {canEditOfficeRequestor ? (
@@ -2467,7 +2462,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                                 setEditOfficeRow(r)
                                 setEditOfficeValue(String(r.doc?.office || '').trim())
                               }}
-                              className="mt-0.5 inline-flex items-center text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:outline-none"
+                              className="mt-0.5 shrink-0 inline-flex items-center text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:outline-none"
                               title="Edit office requestor"
                             >
                               <Pencil className="size-3" />
@@ -2475,7 +2470,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {r.particulars.pr ? (
                             <button
@@ -2539,9 +2534,9 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700">
+                      <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top text-slate-700">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 truncate font-semibold text-slate-900" title={r.amount}>
+                          <div className="min-w-0 font-semibold text-slate-900" title={r.amount}>
                             {r.amount}
                           </div>
                           {canEditAmount ? (
@@ -2559,8 +2554,8 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700 whitespace-pre-line font-medium">{r.duration}</td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top text-slate-700 whitespace-pre-line font-medium">{r.duration}</td>
+                      <td className="w-[270px] min-w-[270px] px-4 py-3 align-top">
                         <StatusBlock
                           status={r.status}
                           readOnly={readOnly}
@@ -2580,7 +2575,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           }}
                         />
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="w-[1%] whitespace-nowrap px-4 py-3 align-top last:text-center last:pr-5">
                         {readOnly ? (
                           <button
                             type="button"

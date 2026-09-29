@@ -204,15 +204,15 @@ export default function OngoingTab({
         <table className="w-full text-left text-sm border-collapse border border-slate-200 [&_th]:border [&_th]:border-blue-700 [&_td]:border [&_td]:border-slate-200">
           <thead className="bg-blue-600 text-white">
             <tr className="border-b border-blue-700">
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
               <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Purpose</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
               {/* Ongoing tab: no Logs column */}
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Action</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -280,8 +280,8 @@ export default function OngoingTab({
                     className={`hover:bg-slate-50 ${rowClass} ${hasSubDocs ? "cursor-pointer" : ""}`}
                     onClick={() => hasSubDocs && onToggleRow(doc.id)}
                   >
-                    <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-600 whitespace-pre-line">{doc.timestamp}</td>
-                    <td className="border-r border-slate-200 px-3 py-3">
+                    <td className="w-[1%] whitespace-nowrap border-r border-slate-200 px-3 py-3 text-xs text-slate-600 whitespace-pre-line">{doc.timestamp}</td>
+                    <td className="w-[1%] whitespace-nowrap border-r border-slate-200 px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         {hasSubDocs && (
                           <button type="button" className="rounded p-0.5 hover:bg-slate-200 transition-colors" onClick={(e) => { e.stopPropagation(); onToggleRow(doc.id) }}>
@@ -289,7 +289,7 @@ export default function OngoingTab({
                           </button>
                         )}
                         <FileText className="size-3.5 text-slate-400" />
-                        <div className={`truncate text-xs font-semibold ${deadlineStatus.isExceeded ? "text-rose-600" : "text-slate-900"}`} title={`${doc.trackingNo}${deadlineStatus.isExceeded ? " (EXCEEDED DEADLINE)" : ""}`}>
+                        <div className={`whitespace-nowrap text-xs font-bold ${deadlineStatus.isExceeded ? "text-rose-600" : "text-slate-900"}`} title={`${doc.trackingNo}${deadlineStatus.isExceeded ? " (EXCEEDED DEADLINE)" : ""}`}>
                           {doc.trackingNo}
                           {deadlineStatus.elapsedText && <span className="ml-1 text-[10px] opacity-60 font-normal">({deadlineStatus.elapsedText})</span>}
                           {deadlineStatus.isExceeded && <span className="ml-1 animate-pulse">⚠️</span>}

@@ -35,15 +35,15 @@ export default function CompletedTab({
         <table className="w-full text-left text-sm border-collapse border border-slate-200 [&_th]:border [&_th]:border-blue-700 [&_td]:border [&_td]:border-slate-200">
           <thead className="bg-blue-600 text-white">
             <tr className="border-b border-blue-700">
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
               <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Purpose</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Logs</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Action</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Logs</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -57,8 +57,8 @@ export default function CompletedTab({
                     className={`hover:bg-slate-50 ${hasSubDocs ? "cursor-pointer" : ""}`}
                     onClick={() => hasSubDocs && onToggleRow(doc.id)}
                   >
-                    <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-600 whitespace-pre-line">{doc.timestamp}</td>
-                    <td className="border-r border-slate-200 px-3 py-3">
+                    <td className="w-[1%] whitespace-nowrap border-r border-slate-200 px-3 py-3 text-xs text-slate-600 whitespace-pre-line">{doc.timestamp}</td>
+                    <td className="w-[1%] whitespace-nowrap border-r border-slate-200 px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         {hasSubDocs && (
                           <button type="button" className="rounded p-0.5 hover:bg-slate-200 transition-colors" onClick={(e) => { e.stopPropagation(); onToggleRow(doc.id) }}>
@@ -66,7 +66,7 @@ export default function CompletedTab({
                           </button>
                         )}
                         <FileText className="size-3.5 text-slate-400" />
-                        <div className="truncate text-xs font-semibold text-slate-900">{doc.trackingNo}</div>
+                        <div className="whitespace-nowrap text-xs font-bold text-slate-900">{doc.trackingNo}</div>
                       </div>
                     </td>
                     <td className="border-r border-slate-200 px-3 py-3 text-xs font-medium text-slate-900">{doc.createdBy}</td>

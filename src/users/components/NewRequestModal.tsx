@@ -1346,156 +1346,6 @@ export default function NewRequestModal({
               />
             </div>
 
-            {/* PR/OBR Toggles */}
-            <div className="mt-4 flex items-center gap-6 rounded border border-slate-300 p-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrEnabled((prev) => {
-                      const next = !prev
-                      if (!next && !obrEnabled) return true
-                      if (next) setActiveTab("pr")
-                      else if (activeTab === "pr" && obrEnabled) setActiveTab("obr")
-                      return next
-                    })
-                  }}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${prEnabled ? "bg-sky-500" : "bg-slate-300"
-                    }`}
-                >
-                  <span
-                    className={`inline-block size-4 rounded-full bg-white transition ${prEnabled ? "translate-x-5" : "translate-x-1"
-                      }`}
-                  />
-                </button>
-                <span className="text-sm font-medium text-slate-700">PR</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setObrEnabled((prev) => {
-                      const next = !prev
-                      if (!next && !prEnabled) return true
-                      if (next) setActiveTab("obr")
-                      else if (activeTab === "obr" && prEnabled) setActiveTab("pr")
-                      return next
-                    })
-                  }}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${obrEnabled ? "bg-sky-500" : "bg-slate-300"
-                    }`}
-                >
-                  <span
-                    className={`inline-block size-4 rounded-full bg-white transition ${obrEnabled ? "translate-x-5" : "translate-x-1"
-                      }`}
-                  />
-                </button>
-                <span className="text-sm font-medium text-slate-700">OBR</span>
-              </div>
-            </div>
-
-            {/* PR/OBR Tabs */}
-            <div className="mt-4 border-b border-slate-200">
-              <div className="flex items-end justify-between gap-3">
-                <div className="flex">
-                  <button
-                    type="button"
-                    disabled={!prEnabled}
-                    onClick={() => setActiveTab("pr")}
-                    className={`px-4 py-2 text-sm font-medium ${!prEnabled
-                      ? "cursor-not-allowed text-slate-300"
-                      : activeTab === "pr"
-                        ? "border-b-2 border-sky-500 text-sky-600"
-                        : "text-slate-600 hover:text-slate-800"
-                      }`}
-                  >
-                    PR
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!obrEnabled}
-                    onClick={() => setActiveTab("obr")}
-                    className={`px-4 py-2 text-sm font-medium ${!obrEnabled
-                      ? "cursor-not-allowed text-slate-300"
-                      : activeTab === "obr"
-                        ? "border-b-2 border-sky-500 text-sky-600"
-                        : "text-slate-600 hover:text-slate-800"
-                      }`}
-                  >
-                    OBR
-                  </button>
-                </div>
-
-                {activeTab === "pr" && prEnabled ? (
-                  <div className="flex items-center gap-2 pb-1">
-                    <button
-                      type="button"
-                      onClick={() => setActivePrPage((p) => Math.max(0, p - 1))}
-                      disabled={activePrPage === 0}
-                      className="inline-flex h-7 items-center justify-center rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActivePrPage((p) => Math.min(prPageCount - 1, p + 1))}
-                      disabled={activePrPage >= prPageCount - 1}
-                      className="inline-flex h-7 items-center justify-center rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPrPages((prev) => {
-                          const next = prev.map((p) => p.map((r) => ({ ...r })))
-                          const page = next[activePrPage] ?? createEmptyPrPageRows()
-                          const lastIdx = page.length - 1
-
-                          // Insert new empty item row just before TOTAL row
-                          const newRow = {
-                            itemNo: "",
-                            unit: "",
-                            description: "",
-                            quantity: "",
-                            unitCost: "",
-                            totalCost: "",
-                          }
-
-                          const newPage = [...page.slice(0, lastIdx), newRow, page[lastIdx]]
-                          next[activePrPage] = newPage
-
-                          // Focus the new row's Item No cell after state update
-                          const newRowIndex = newPage.length - 2
-                          setTimeout(() => {
-                            focusTableCell(newRowIndex, 0)
-                          }, 0)
-
-                          return next
-                        })
-                      }}
-                      className="inline-flex h-7 items-center justify-center rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      Add Row
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPrPages((prev) => {
-                          return [...prev, createEmptyPrPageRows()]
-                        })
-                        setActivePrPage(prPagesLenRef.current)
-                        tableInputRefs.current = []
-                      }}
-                      className="inline-flex h-7 items-center justify-center rounded bg-sky-600 px-2 text-xs font-medium text-white transition hover:bg-sky-700"
-                    >
-                      Add Page
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
             {/* Table Editor Area - Conditional PR/OBR */}
             <div className="mt-4">
               {/* Table Container */}
@@ -1981,6 +1831,125 @@ export default function NewRequestModal({
           {/* Right Panel - Signatories Editor */}
           <div className="w-64 shrink-0 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3">
 
+            {/* PR/OBR Toggles */}
+            <div className="mb-3 flex items-center gap-4 rounded border border-slate-300 bg-white p-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrEnabled((prev) => {
+                      const next = !prev
+                      if (!next && !obrEnabled) return true
+                      if (next) setActiveTab("pr")
+                      else if (activeTab === "pr" && obrEnabled) setActiveTab("obr")
+                      return next
+                    })
+                  }}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${prEnabled ? "bg-sky-500" : "bg-slate-300"}`}
+                >
+                  <span className={`inline-block size-4 rounded-full bg-white transition ${prEnabled ? "translate-x-5" : "translate-x-1"}`} />
+                </button>
+                <span className="text-sm font-medium text-slate-700">PR</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setObrEnabled((prev) => {
+                      const next = !prev
+                      if (!next && !prEnabled) return true
+                      if (next) setActiveTab("obr")
+                      else if (activeTab === "obr" && prEnabled) setActiveTab("pr")
+                      return next
+                    })
+                  }}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${obrEnabled ? "bg-sky-500" : "bg-slate-300"}`}
+                >
+                  <span className={`inline-block size-4 rounded-full bg-white transition ${obrEnabled ? "translate-x-5" : "translate-x-1"}`} />
+                </button>
+                <span className="text-sm font-medium text-slate-700">OBR</span>
+              </div>
+            </div>
+
+            {/* PR/OBR Tabs */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1 border-b border-slate-200">
+                <button
+                  type="button"
+                  disabled={!prEnabled}
+                  onClick={() => setActiveTab("pr")}
+                  className={`px-3 py-1.5 text-xs font-medium ${!prEnabled ? "cursor-not-allowed text-slate-300" : activeTab === "pr" ? "border-b-2 border-sky-500 text-sky-600" : "text-slate-600 hover:text-slate-800"}`}
+                >
+                  PR
+                </button>
+                <button
+                  type="button"
+                  disabled={!obrEnabled}
+                  onClick={() => setActiveTab("obr")}
+                  className={`px-3 py-1.5 text-xs font-medium ${!obrEnabled ? "cursor-not-allowed text-slate-300" : activeTab === "obr" ? "border-b-2 border-sky-500 text-sky-600" : "text-slate-600 hover:text-slate-800"}`}
+                >
+                  OBR
+                </button>
+              </div>
+              {activeTab === "pr" && prEnabled ? (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setActivePrPage((p) => Math.max(0, p - 1))}
+                    disabled={activePrPage === 0}
+                    className="inline-flex h-7 items-center justify-center rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivePrPage((p) => Math.min(prPageCount - 1, p + 1))}
+                    disabled={activePrPage >= prPageCount - 1}
+                    className="inline-flex h-7 items-center justify-center rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrPages((prev) => {
+                        const next = [...prev]
+                        const page = next[activePrPage]
+                        const lastIdx = page.length - 1
+                        const newRow = {
+                          itemNo: "",
+                          unit: "",
+                          description: "",
+                          quantity: "",
+                          unitCost: "",
+                          totalCost: "",
+                        }
+                        const newPage = [...page.slice(0, lastIdx), newRow, page[lastIdx]]
+                        next[activePrPage] = newPage
+                        const newRowIndex = newPage.length - 2
+                        setTimeout(() => { focusTableCell(newRowIndex, 0) }, 0)
+                        return next
+                      })
+                    }}
+                    className="inline-flex h-7 items-center justify-center rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Add Row
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrPages((prev) => [...prev, createEmptyPrPageRows()])
+                      setActivePrPage(prPagesLenRef.current)
+                      tableInputRefs.current = []
+                    }}
+                    className="inline-flex h-7 items-center justify-center rounded bg-sky-600 px-2 text-xs font-medium text-white transition hover:bg-sky-700"
+                  >
+                    Add Page
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
             {/* PR Signatories */}
             {activeTab === "pr" && prEnabled ? (
               <>
@@ -2164,7 +2133,7 @@ export default function NewRequestModal({
               onClick={onClose}
               className="inline-flex h-9 items-center justify-center rounded border border-slate-300 bg-white px-4 text-sm font-medium transition hover:bg-slate-50"
             >
-              Cancel
+              Close
             </button>
             <button
               type="button"
@@ -2300,7 +2269,7 @@ export default function NewRequestModal({
                   }}
                   className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus-visible:outline-none"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="button"

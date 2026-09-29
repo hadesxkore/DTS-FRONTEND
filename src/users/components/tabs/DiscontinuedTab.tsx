@@ -22,16 +22,16 @@ export default function DiscontinuedTab({
         <table className="w-full text-left text-sm border-collapse border border-slate-200 [&_th]:border [&_th]:border-blue-700 [&_td]:border [&_td]:border-slate-200">
           <thead className="bg-blue-600 text-white">
             <tr className="border-b border-blue-700">
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Timestamp</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Created By</th>
               <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Purpose</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Discontinued At</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Logs</th>
-              <th className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Status</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Documents</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Supplier</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Discontinued At</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Logs</th>
+              <th className="w-[1%] whitespace-nowrap px-3.5 py-3.5 text-xs font-bold uppercase tracking-wider text-white">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -40,10 +40,10 @@ export default function DiscontinuedTab({
 
               return (
                 <tr key={doc.id} className="hover:bg-slate-50 opacity-80">
-                  <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-600 whitespace-pre-line">{doc.timestamp}</td>
-                  <td className="border-r border-slate-200 px-3 py-3">
+                  <td className="w-[1%] whitespace-nowrap border-r border-slate-200 px-3 py-3 text-xs text-slate-600 whitespace-pre-line">{doc.timestamp}</td>
+                  <td className="w-[1%] whitespace-nowrap border-r border-slate-200 px-3 py-3">
                     <div className="flex items-center gap-1.5">
-                      <div className="text-xs font-semibold text-slate-500 line-through">{doc.trackingNo}</div>
+                      <div className="whitespace-nowrap text-xs font-bold text-slate-500 line-through">{doc.trackingNo}</div>
                     </div>
                   </td>
                   <td className="border-r border-slate-200 px-3 py-3 text-xs font-medium text-slate-600">{doc.createdBy}</td>

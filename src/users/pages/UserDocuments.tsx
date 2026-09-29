@@ -3603,22 +3603,22 @@ export default function UserDocuments({ showAll = false, onBadgeCountChange, hid
                       <table className="w-full text-left text-sm border-collapse border border-slate-200 [&_th]:border [&_th]:border-blue-700 [&_td]:border [&_td]:border-slate-200">
                         <thead className="bg-blue-600 text-white">
                           <tr className="border-b border-blue-700">
-                            <th className="px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Returned At</th>
-                            <th className="px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
+                            <th className="w-[1%] whitespace-nowrap px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Returned At</th>
+                            <th className="w-[1%] whitespace-nowrap px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Tracking #</th>
                             <th className="px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Purpose</th>
-                            <th className="px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
-                            <th className="px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Action</th>
+                            <th className="w-[1%] whitespace-nowrap px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Amount</th>
+                            <th className="w-[1%] whitespace-nowrap px-3.5 py-3 text-xs font-bold uppercase tracking-wider text-white">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {returnedDocs.map((doc) => (
                             <tr key={doc.id} className="align-top hover:bg-slate-50">
-                              <td className="px-3 py-2 text-xs text-slate-700">{getReturnedTimestamp(doc)}</td>
-                              <td className="px-3 py-2 text-xs font-semibold text-slate-900">{doc.trackingNo}</td>
-                              <td className="px-3 py-2 text-xs text-slate-700">
-                                <div className="max-w-md whitespace-pre-wrap">{doc.purpose}</div>
+                              <td className="w-[1%] whitespace-nowrap px-3 py-2 text-xs text-slate-700">{getReturnedTimestamp(doc)}</td>
+                              <td className="w-[1%] whitespace-nowrap px-3 py-2 text-xs font-bold text-slate-900">{doc.trackingNo}</td>
+                              <td className="px-3 py-2 text-xs text-slate-700 break-words whitespace-normal leading-relaxed">
+                                <div className="max-w-md whitespace-pre-wrap break-words">{doc.purpose}</div>
                               </td>
-                              <td className="px-3 py-2 text-xs font-semibold text-slate-900">₱ {formatPeso(doc.amount)}</td>
+                              <td className="w-[1%] whitespace-nowrap px-3 py-2 text-xs font-semibold text-slate-900">₱ {formatPeso(doc.amount)}</td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-wrap items-center gap-1">
                                   <button
