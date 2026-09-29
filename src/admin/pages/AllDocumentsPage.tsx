@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   CheckCircle2,
   Download,
   ExternalLink,
@@ -499,6 +500,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
   >(null)
 
   const [deleteConfirm, setDeleteConfirm] = useState<RequestRow | null>(null)
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
   const [returnToApprovalsConfirm, setReturnToApprovalsConfirm] = useState<RequestRow | null>(null)
@@ -529,6 +531,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
   const closeDeleteConfirm = () => {
     if (deleteBusy) return
     setDeleteConfirm(null)
+    setDeleteStep(1)
   }
 
   const isAdminRole = useMemo(() => {
@@ -559,6 +562,42 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
     if (!needle) return false
     const list = Array.isArray(officePrivileges) ? officePrivileges : []
     return list.some((p) => String(p || '').trim().toLowerCase() === needle)
+  }
+
+  const hasBacTransferredToGsoForPo = (row: RequestRow) => {
+    const hasPoData = Boolean(
+      (row.doc as any)?.poModel ||
+      (row.doc as any)?.poData ||
+      (row.doc as any)?.poNo ||
+      (row.doc as any)?.poNumber
+    )
+    if (hasPoData) return true
+
+    const rawLogs = Array.isArray(row.doc?.logs) ? (row.doc.logs as any[]) : []
+
+    const hasBacTransfer = rawLogs.some((l) => {
+      const label = String(l?.label || '').toLowerCase().trim()
+      const byOffice = String(l?.byOffice || '').toLowerCase().trim()
+
+      const isByBac =
+        byOffice.includes('bac') ||
+        byOffice.includes('bids') ||
+        byOffice.includes('awards') ||
+        label.startsWith('bac:') ||
+        label.startsWith('bac ')
+
+      const mentionsGso = label.includes('gso') || label.includes('general services') || label.includes('pgso')
+      const isTransfer = label.includes('transferred to') || label.includes('transfer to')
+
+      if (isByBac && isTransfer && mentionsGso) {
+        return true
+      }
+      return false
+    })
+
+    if (hasBacTransfer) return true
+
+    return false
   }
 
   const patchDocument = async (docId: string, body: any) => {
@@ -1911,70 +1950,130 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
           <div className="min-h-full w-full">
             <div className="flex min-h-full items-start justify-center py-10">
               <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                {/* Header */}
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-red-50/50">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 shrink-0">
-                      <Trash2 className="size-4" />
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${deleteStep === 1 ? 'bg-red-100 text-red-600' : 'bg-red-600 text-white'}`}>
+                      {deleteStep === 1 ? <Trash2 className="size-4" /> : <AlertTriangle className="size-4" />}
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-red-900">Delete Document</div>
+                      <div className="truncate text-base font-semibold text-red-900">
+                        {deleteStep === 1 ? 'Delete Document' : 'Final Confirmation: Delete'}
+                      </div>
                       <div className="truncate text-xs font-mono text-slate-600">{deleteConfirm.trackingNo}</div>
                     </div>
                   </div>
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-800">
+                    Step {deleteStep} of 2
+                  </span>
                 </div>
 
-                <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-red-800">Warning: Permanent Action</div>
-                    <div className="mt-1 text-xs text-red-700 leading-relaxed">
-                      Are you sure you want to permanently delete document <strong>#{deleteConfirm.trackingNo}</strong>? This action cannot be undone and will remove all history and logs for this entry.
+                {deleteStep === 1 ? (
+                  /* Step 1: Initial Warning & Document Overview */
+                  <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-red-800">Warning: Permanent Action</div>
+                      <div className="mt-1 text-xs text-red-700 leading-relaxed">
+                        Are you sure you want to permanently delete document <strong>#{deleteConfirm.trackingNo}</strong>? This action cannot be undone and will remove all history and logs for this entry.
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1.5 text-slate-600">
+                      <div><span className="font-semibold text-slate-700">Office / Requestor:</span> {deleteConfirm.officeRequestor || 'N/A'}</div>
+                      {deleteConfirm.purpose ? (
+                        <div className="line-clamp-2"><span className="font-semibold text-slate-700">Purpose:</span> {deleteConfirm.purpose}</div>
+                      ) : null}
+                      {deleteConfirm.amount ? (
+                        <div><span className="font-semibold text-slate-700">Amount:</span> {deleteConfirm.amount}</div>
+                      ) : null}
                     </div>
                   </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1.5 text-slate-600">
-                    <div><span className="font-semibold text-slate-700">Office / Requestor:</span> {deleteConfirm.officeRequestor || 'N/A'}</div>
-                    {deleteConfirm.purpose ? (
-                      <div className="line-clamp-2"><span className="font-semibold text-slate-700">Purpose:</span> {deleteConfirm.purpose}</div>
-                    ) : null}
-                    {deleteConfirm.amount ? (
-                      <div><span className="font-semibold text-slate-700">Amount:</span> {deleteConfirm.amount}</div>
-                    ) : null}
+                ) : (
+                  /* Step 2: Final Critical Confirmation */
+                  <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
+                    <div className="rounded-lg border-2 border-red-500 bg-red-50/80 p-4 shadow-xs">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-red-900">
+                        <AlertTriangle className="size-4 text-red-600 shrink-0" />
+                        Please Confirm One More Time
+                      </div>
+                      <div className="mt-2 text-xs text-red-800 leading-relaxed">
+                        Sigurado ka ba na gusto mong tuluyang i-delete ang document <strong>#{deleteConfirm.trackingNo}</strong>?
+                      </div>
+                      <ul className="mt-2 space-y-1 text-[11px] text-red-700 list-disc list-inside">
+                        <li>Lahat ng logs, tracking history, at audit records ay mabubura</li>
+                        <li>Lahat ng attachments at records ay permanente nang mawawala</li>
+                        <li>Hindi na ito mababawi o maibabalik kapag na-delete</li>
+                      </ul>
+                    </div>
                   </div>
-                </div>
+                )}
 
+                {/* Footer */}
                 <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
-                  <button
-                    type="button"
-                    disabled={deleteBusy}
-                    onClick={closeDeleteConfirm}
-                    className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none disabled:opacity-60"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deleteBusy}
-                    onClick={async () => {
-                      if (!deleteConfirm) return
-                      const row = deleteConfirm
-                      setDeleteBusy(true)
-                      try {
-                        await deleteDocument(String(row.doc._id))
-                        toast.success(`Document #${row.trackingNo} deleted successfully`)
-                        setDeleteConfirm(null)
-                        await fetchRows()
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : 'Failed to delete document')
-                        toast.error(e instanceof Error ? e.message : 'Failed to delete document')
-                      } finally {
-                        setDeleteBusy(false)
-                      }
-                    }}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Trash2 className="size-4" />
-                    {deleteBusy ? 'Deleting...' : 'Delete Document'}
-                  </button>
+                  {deleteStep === 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={deleteBusy}
+                        onClick={closeDeleteConfirm}
+                        className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteBusy}
+                        onClick={() => setDeleteStep(2)}
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="size-4" />
+                        Delete Document
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={deleteBusy}
+                        onClick={() => setDeleteStep(1)}
+                        className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none disabled:opacity-60"
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteBusy}
+                        onClick={closeDeleteConfirm}
+                        className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus:outline-none disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteBusy}
+                        onClick={async () => {
+                          if (!deleteConfirm) return
+                          const row = deleteConfirm
+                          setDeleteBusy(true)
+                          try {
+                            await deleteDocument(String(row.doc._id))
+                            toast.success(`Document #${row.trackingNo} permanently deleted`)
+                            closeDeleteConfirm()
+                            await fetchRows()
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : 'Failed to delete document')
+                            toast.error(e instanceof Error ? e.message : 'Failed to delete document')
+                          } finally {
+                            setDeleteBusy(false)
+                          }
+                        }}
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-red-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-red-800 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="size-4" />
+                        {deleteBusy ? 'Deleting...' : 'Yes, Delete Permanently'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1999,19 +2098,19 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
               <div className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
                   <div className="min-w-0">
-                    <div className="truncate text-base font-semibold text-slate-900">Return to Approvals</div>
+                    <div className="truncate text-base font-semibold text-slate-900">Process Return Request</div>
                     <div className="truncate text-xs text-slate-600">{returnToApprovalsConfirm.trackingNo}</div>
                   </div>
                 </div>
 
                 <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
                   <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Action</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">Return Workflow Action</div>
                     <div className="mt-1 text-sm font-semibold text-slate-900">
-                      Return this document back to Approvals?
+                      Process return for this document?
                     </div>
-                    <div className="mt-1 text-xs text-slate-600">
-                      This will revoke active office transfers and move the document back to the <strong>Approvals / Pre-Validation</strong> stage.
+                    <div className="mt-1 text-xs text-slate-600 leading-relaxed">
+                      The system automatically returns <strong>unreceived transfers</strong> back to <strong>Pre-Validation</strong>, and <strong>ongoing/received documents</strong> to the End User's <strong>Returned Documents</strong> to receive.
                     </div>
                   </div>
 
@@ -2054,7 +2153,7 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                           returnToApprovals: true,
                           returnRemarks: returnToApprovalsRemarks.trim(),
                         })
-                        toast.success(`Document ${row.trackingNo} returned to Approvals`)
+                        toast.success(`Return request for ${row.trackingNo} processed successfully`)
                         setReturnToApprovalsConfirm(null)
                         setReturnToApprovalsRemarks("")
                         await fetchRows()
@@ -2500,14 +2599,16 @@ export default function AllDocumentsPage({ title = "All Documents", readOnly = f
                               DV
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => setPreview({ type: "PO", row: r })}
-                            className="inline-flex h-6 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white shadow-xs transition-all hover:bg-emerald-700 active:scale-95 focus:outline-none"
-                            title="Preview PO"
-                          >
-                            PO
-                          </button>
+                          {hasBacTransferredToGsoForPo(r) && (
+                            <button
+                              type="button"
+                              onClick={() => setPreview({ type: "PO", row: r })}
+                              className="inline-flex h-6 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white shadow-xs transition-all hover:bg-emerald-700 active:scale-95 focus:outline-none"
+                              title="Preview PO"
+                            >
+                              PO
+                            </button>
+                          )}
                           {r.particulars.driveLink ? (
                             <button
                               type="button"

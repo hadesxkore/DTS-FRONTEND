@@ -1123,7 +1123,17 @@ export default function UserDocuments({ showAll = false, onBadgeCountChange, hid
 
   const hasTransferredLog = (doc: DocumentRow) => {
     const rawLogs = Array.isArray(doc?.logs) ? doc.logs : []
-    return rawLogs.some((l) => String(l?.label || '').trim().toLowerCase().includes('transferred to'))
+    // Note: doc.logs is reversed (newest log is at index 0)
+    for (const l of rawLogs) {
+      const lbl = String(l?.label || '').trim().toLowerCase()
+      if (lbl.includes('returned to approvals') || lbl.includes('returned to pre-validation')) {
+        return false
+      }
+      if (lbl.includes('transferred to')) {
+        return true
+      }
+    }
+    return false
   }
 
   const hasApprovedByOffice = (doc: DocumentRow, officeNeedle: string) => {
@@ -4072,7 +4082,7 @@ export default function UserDocuments({ showAll = false, onBadgeCountChange, hid
                   <RotateCcw className="size-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">Request Return to Approvals</h3>
+                  <h3 className="text-base font-bold text-slate-800">Request Return</h3>
                   <p className="text-xs text-slate-500">{requestReturnDoc.trackingNo}</p>
                 </div>
               </div>
@@ -4090,7 +4100,7 @@ export default function UserDocuments({ showAll = false, onBadgeCountChange, hid
               <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 p-3 text-xs text-amber-900">
                 <p className="font-semibold">Notify Admin</p>
                 <p className="mt-0.5 text-amber-700 text-[11px]">
-                  This will submit a request to Admin to return this ongoing document back to the Approvals / Pre-Validation stage.
+                  This will submit a request to Admin to process the return of this document. The system will automatically return unreceived transfers back to Pre-Validation, and ongoing/received documents to your Returned Documents list.
                 </p>
               </div>
 

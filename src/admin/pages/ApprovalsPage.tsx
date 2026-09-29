@@ -1093,28 +1093,28 @@ export default function ApprovalsPage({
 
     const rawLogs = Array.isArray(row.rawLogs) ? row.rawLogs : Array.isArray(row.doc?.logs) ? (row.doc.logs as any[]) : []
 
-    // 2. Check if there's any log where BAC transferred to GSO or mentioned PO Preparation
+    // 2. Check if there's any log where BAC transferred to GSO or PGSO
     const hasBacTransfer = rawLogs.some((l) => {
       const label = String(l?.label || '').toLowerCase().trim()
       const byOffice = String(l?.byOffice || '').toLowerCase().trim()
 
-      const isByBac = byOffice.includes('bac') || byOffice.includes('bids') || byOffice.includes('awards')
-      const mentionsGso = label.includes('gso') || label.includes('general services')
-      const mentionsPo = label.includes('po preparation') || label.includes('for po') || label.includes('purchase order')
+      const isByBac =
+        byOffice.includes('bac') ||
+        byOffice.includes('bids') ||
+        byOffice.includes('awards') ||
+        label.startsWith('bac:') ||
+        label.startsWith('bac ')
 
-      if (isByBac && (mentionsGso || mentionsPo || label.startsWith('transferred to'))) {
-        return true
-      }
-      if (mentionsPo) {
+      const mentionsGso = label.includes('gso') || label.includes('general services') || label.includes('pgso')
+      const isTransfer = label.includes('transferred to') || label.includes('transfer to')
+
+      if (isByBac && isTransfer && mentionsGso) {
         return true
       }
       return false
     })
 
     if (hasBacTransfer) return true
-
-    // 3. If currently viewed by BAC office
-    if (actionIsBac) return true
 
     return false
   }
@@ -1179,12 +1179,32 @@ export default function ApprovalsPage({
 
       const hasAnyTransferredLog = (doc: { logs?: any[], subDocuments?: any[] } | null | undefined) => {
         const rawLogs = Array.isArray(doc?.logs) ? (doc?.logs as any[]) : []
-        const hasMain = rawLogs.some((l) => String(l?.label || '').trim().toLowerCase().includes('transferred to'))
-        if (hasMain) return true
+        let hasActiveMain = false
+        for (let i = rawLogs.length - 1; i >= 0; i--) {
+          const lbl = String(rawLogs[i]?.label || '').trim().toLowerCase()
+          if (lbl.includes('returned to approvals') || lbl.includes('returned to pre-validation')) {
+            hasActiveMain = false
+            break
+          }
+          if (lbl.includes('transferred to')) {
+            hasActiveMain = true
+            break
+          }
+        }
+        if (hasActiveMain) return true
         if (Array.isArray(doc?.subDocuments)) {
           return doc.subDocuments.some((sub) => {
             const subLogs = Array.isArray(sub?.logs) ? sub.logs : []
-            return subLogs.some((l: any) => String(l?.label || '').trim().toLowerCase().includes('transferred to'))
+            for (let i = subLogs.length - 1; i >= 0; i--) {
+              const lbl = String(subLogs[i]?.label || '').trim().toLowerCase()
+              if (lbl.includes('returned to approvals') || lbl.includes('returned to pre-validation')) {
+                return false
+              }
+              if (lbl.includes('transferred to')) {
+                return true
+              }
+            }
+            return false
           })
         }
         return false

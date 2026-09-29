@@ -152,6 +152,42 @@ function formatDate(raw: string | number | Date | undefined) {
   return isNaN(d.getTime()) ? "-" : d.toLocaleString()
 }
 
+function hasBacTransferredToGsoForPo(row: ReviewRow) {
+  const hasPoData = Boolean(
+    (row.doc as any)?.poModel ||
+    (row.doc as any)?.poData ||
+    (row.doc as any)?.poNo ||
+    (row.doc as any)?.poNumber
+  )
+  if (hasPoData) return true
+
+  const rawLogs = Array.isArray(row.doc?.logs) ? (row.doc.logs as any[]) : []
+
+  const hasBacTransfer = rawLogs.some((l) => {
+    const label = String(l?.label || '').toLowerCase().trim()
+    const byOffice = String(l?.byOffice || '').toLowerCase().trim()
+
+    const isByBac =
+      byOffice.includes('bac') ||
+      byOffice.includes('bids') ||
+      byOffice.includes('awards') ||
+      label.startsWith('bac:') ||
+      label.startsWith('bac ')
+
+    const mentionsGso = label.includes('gso') || label.includes('general services') || label.includes('pgso')
+    const isTransfer = label.includes('transferred to') || label.includes('transfer to')
+
+    if (isByBac && isTransfer && mentionsGso) {
+      return true
+    }
+    return false
+  })
+
+  if (hasBacTransfer) return true
+
+  return false
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type Props = {
@@ -840,13 +876,15 @@ export default function ProcurementReviewPage({ officePrivileges: _officePrivile
                                 DV
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => setPreview({ type: "PO", row: r })}
-                              className="inline-flex items-center justify-center rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-emerald-700 focus:outline-none"
-                            >
-                              PO
-                            </button>
+                            {hasBacTransferredToGsoForPo(r) && (
+                              <button
+                                type="button"
+                                onClick={() => setPreview({ type: "PO", row: r })}
+                                className="inline-flex items-center justify-center rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-emerald-700 focus:outline-none"
+                              >
+                                PO
+                              </button>
+                            )}
                             {r.driveLink ? (
                               <a
                                 href={r.driveLink}
