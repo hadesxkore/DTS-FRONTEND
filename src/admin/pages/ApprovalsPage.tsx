@@ -413,7 +413,8 @@ export default function ApprovalsPage({
         setRoutingSlipMap((prev) => ({ ...prev, [docId]: newVal }))
         row.gsoRoutingSlip = newVal
         if (row.doc) row.doc.gsoRoutingSlip = newVal
-        toast.success("Routing slip updated")
+        const trackNo = confirmRoutingSlipModal.trackingNo || row.trackingNo || ""
+        toast.success(`Routing slip updated for #${trackNo}`)
         setConfirmRoutingSlipModal(null)
       }
     } catch {
@@ -2148,7 +2149,8 @@ export default function ApprovalsPage({
       })
 
       await fetchRows()
-      toast.success('PO updated successfully')
+      const tNo = preview?.row?.trackingNo || ""
+      toast.success(tNo ? `PO updated successfully for #${tNo}` : 'PO updated successfully')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update PO')
       throw err

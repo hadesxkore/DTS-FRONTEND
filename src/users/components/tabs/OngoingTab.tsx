@@ -266,7 +266,27 @@ export default function OngoingTab({
               })()
 
               const rowClass = deadlineStatus.isExceeded ? "bg-rose-50" : ""
-              const hasReprocessed = doc.logs.some((l) => String(l?.label || "").toLowerCase().includes("reprocess"))
+              // hasReprocessed should only hide buttons while the reprocess-transfer is still pending
+              // (i.e. the document hasn't been received back). Once status is 'ongoing' again it means
+              // the cycle completed → show the action buttons normally.
+              const hasReprocessed = (() => {
+                if (docStatus !== "ongoing") return false
+                const logsList2 = Array.isArray(doc.logs) ? [...doc.logs] : []
+                // Find the last movement-type log
+                const lastMovement = [...logsList2].reverse().find((l) => {
+                  const lbl = String(l?.label || "").trim().toLowerCase()
+                  return (
+                    lbl.startsWith("received") ||
+                    lbl.startsWith("transferred") ||
+                    lbl.includes("returned") ||
+                    lbl.includes("completed")
+                  )
+                })
+                if (!lastMovement) return false
+                // Only block if the most-recent movement is still a reprocess-transfer (not yet received back)
+                const lastLbl = String(lastMovement?.label || "").trim().toLowerCase()
+                return lastLbl.includes("reprocess") && lastLbl.startsWith("transferred")
+              })()
               const allSubDocsTransferred =
                 hasSubDocs &&
                 Array.isArray(doc.subDocuments) &&
@@ -300,35 +320,27 @@ export default function OngoingTab({
                     <td className="border-r border-slate-200 px-3 py-3 text-xs text-slate-600 max-w-xs">
                       <p className="line-clamp-3">{doc.purpose}</p>
                     </td>
-                    <td className="border-r border-slate-200 px-3 py-3">
-                      <div className="flex items-center gap-1 flex-nowrap overflow-x-auto">
+                    <td className="border-r border-slate-200 px-3 py-3 min-w-[140px]">
+                      <div className="grid grid-cols-2 gap-1">
                         {doc.particulars.map((p, idx) =>
                           p.label === "PR" ? (
-                            <button key={idx} type="button" onClick={() => onPreviewPR(doc)} className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${p.color} hover:opacity-90 focus:outline-none`}>{p.label}</button>
+                            <button key={idx} type="button" onClick={() => onPreviewPR(doc)} className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] font-medium text-white ${p.color} hover:opacity-90 focus:outline-none`}>{p.label}</button>
                           ) : p.label === "OBR" ? (
-                            <button key={idx} type="button" onClick={() => onPreviewOBR(doc)} className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${p.color} hover:opacity-90 focus:outline-none`}>{p.label}</button>
+                            <button key={idx} type="button" onClick={() => onPreviewOBR(doc)} className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] font-medium text-white ${p.color} hover:opacity-90 focus:outline-none`}>{p.label}</button>
                           ) : (
-                            <span key={idx} className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${p.color}`}>{p.label}</span>
+                            <span key={idx} className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] font-medium text-white ${p.color}`}>{p.label}</span>
                           )
                         )}
                         {Boolean(getMainDocSupplierInfo(doc).supplier) && (
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onPreviewDV?.(doc) }}
-                            className="inline-flex items-center rounded bg-purple-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-purple-700 focus:outline-none shadow-sm transition"
+                            className="inline-flex items-center justify-center rounded bg-purple-600 px-1.5 py-1 text-[10px] font-medium text-white hover:bg-purple-700 focus:outline-none shadow-sm transition"
                             title="Preview DV"
                           >
                             DV
                           </button>
                         )}
-                        {/* <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onPreviewPO?.(doc) }}
-                          className="inline-flex items-center rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-emerald-700 focus:outline-none shadow-sm transition"
-                          title="Preview PO"
-                        >
-                          PO
-                        </button> */}
                         {(() => {
                           const href = String(doc.driveLink || "").trim()
                           if (!href) return null
@@ -338,7 +350,7 @@ export default function OngoingTab({
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                              className="inline-flex items-center justify-center rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                               title="Open link"
                             >
                               Link
@@ -352,7 +364,7 @@ export default function OngoingTab({
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onRoutingSlip?.(doc) }}
-                                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-white whitespace-nowrap transition ${hasRoutingSlip ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-400 hover:bg-slate-500"}`}
+                                className={`col-span-2 inline-flex items-center justify-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium text-white whitespace-nowrap transition ${hasRoutingSlip ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-400 hover:bg-slate-500"}`}
                                 title={hasRoutingSlip ? `Routing Slip: ${doc.gsoRoutingSlip}` : "No routing slip assigned yet"}
                               >
                                 <Printer className="size-3" />
@@ -378,9 +390,9 @@ export default function OngoingTab({
                         return `${filled}/${(doc.subDocuments || []).length}`
                       })()}
                     </td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-nowrap items-center gap-1 overflow-x-auto">
-                        <button type="button" onClick={() => onHistoryModal(doc)} className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-amber-600">
+                    <td className="px-3 py-3 min-w-[160px]">
+                      <div className="grid grid-cols-2 gap-1">
+                        <button type="button" onClick={() => onHistoryModal(doc)} className="inline-flex items-center justify-center gap-1 rounded bg-amber-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-amber-600">
                           <History className="size-3" />
                           History
                         </button>
@@ -391,7 +403,7 @@ export default function OngoingTab({
                             e.stopPropagation()
                             onRequestReturnToApprovals?.(doc)
                           }}
-                          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium transition ${doc.returnToApprovalsRequested
+                          className={`inline-flex items-center justify-center gap-1 rounded px-2 py-1 text-[10px] font-medium transition ${doc.returnToApprovalsRequested
                             ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed'
                             : 'bg-amber-600 text-white hover:bg-amber-700'
                             }`}
@@ -402,30 +414,23 @@ export default function OngoingTab({
                         </button>
                         {docStatus === "ongoing" && !hasReprocessed && (
                           <>
-                            <button type="button" onClick={() => onEditDoc(doc)} className="inline-flex items-center gap-1 rounded bg-sky-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-700">Update</button>
-                            <button
-                              type="button"
-                              disabled={hasSubDocs && !allSubDocsTransferred}
-                              onClick={() => onEditMainSupplier(doc)}
-                              className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                              title={hasSubDocs && !allSubDocsTransferred ? "Transfer all sub-documents to next office first" : ""}
-                            >
-                              Edit Details
-                            </button>
+                            <button type="button" onClick={() => onEditDoc(doc)} className="inline-flex items-center justify-center gap-1 rounded bg-sky-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-700">Update</button>
+
                             <button
                               type="button"
                               disabled={actionBusyId === doc.id || (hasSubDocs && !allSubDocsTransferred)}
                               onClick={() => onReprocessDoc(doc)}
-                              className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="inline-flex items-center justify-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[10px] font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                               title={hasSubDocs && !allSubDocsTransferred ? "Transfer all sub-documents to next office first" : ""}
                             >
                               Reprocess
                             </button>
-                            <button type="button" disabled={actionBusyId === doc.id} onClick={() => onCancelDoc(doc)} className="inline-flex items-center gap-1 rounded bg-rose-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Cancel</button>
+                            <button type="button" disabled={actionBusyId === doc.id} onClick={() => onCancelDoc(doc)} className="col-span-2 inline-flex items-center justify-center gap-1 rounded bg-rose-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Cancel</button>
                           </>
                         )}
                       </div>
                     </td>
+
                   </tr>
 
                   {isExpanded && doc.subDocuments?.map((sub, sidx) => {

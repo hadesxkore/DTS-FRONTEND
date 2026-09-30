@@ -49,7 +49,8 @@ export default function RoutingSlipModal({ rsDoc, onClose }: RoutingSlipModalPro
         return false
       }
 
-      toast.success("Routing slip category updated")
+      const trackNum = rsDoc.trackingNo || (rsDoc as any).trackingNumber || ""
+      toast.success(`Routing slip category updated for #${trackNum}`)
       rsDoc.gsoRoutingSlip = category
       if ((rsDoc as any).doc) (rsDoc as any).doc.gsoRoutingSlip = category
       return true

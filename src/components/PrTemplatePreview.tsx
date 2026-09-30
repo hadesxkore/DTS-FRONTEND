@@ -143,6 +143,10 @@ export function PrTemplatePreview({
           const pageSubTotal = pageItems.reduce((sum, it) => sum + computeItemTotal(it), 0)
           const isLastPage = pageIndex === pageCount - 1
 
+          const prevItemsWithUnitCount = pages
+            .slice(0, pageIndex)
+            .reduce((sum, pg) => sum + pg.filter((it) => Boolean(String(it?.unit || "").trim())).length, 0)
+
           const itemRowCount = 25
           const totalRowIndex = itemRowCount
 
@@ -190,33 +194,33 @@ export function PrTemplatePreview({
                       <colgroup>
                         <col style={{ width: "140px" }} />
                         <col style={{ width: "auto" }} />
-                        <col style={{ width: "130px" }} />
                       </colgroup>
                       <tbody>
                         <tr>
-                          <td className="border-r border-black px-2 pt-1.5 pb-2 align-middle whitespace-nowrap">
+                          <td className="border-r border-black px-2 py-1 align-top break-words leading-tight">
                             Department: {model.department || ""}
                           </td>
-                          <td className="px-2 pt-1.5 pb-2 align-middle">
-                            <span>PR No.:</span>
-                            {model.prNo ? (
-                              <span className="text-blue-600 font-bold ml-1.5 font-mono">
-                                {model.prNo.replace(/^PR\s*No\.?\s*:?\s*/i, "")}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td
-                            className="px-2 pt-1.5 pb-2 text-right align-middle whitespace-nowrap"
-                            style={{ paddingRight: "180px" }}
-                          >
-                            Date: {model.date || ""}
+                          <td className="px-2 py-1 align-top">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span>PR No.:</span>
+                                {model.prNo ? (
+                                  <span className="text-blue-600 font-bold ml-1.5 font-mono">
+                                    {model.prNo.replace(/^PR\s*No\.?\s*:?\s*/i, "")}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="whitespace-nowrap">
+                                Date: {model.date || ""}
+                              </div>
+                            </div>
                           </td>
                         </tr>
                         <tr>
-                          <td className="border-r border-black px-2 pt-1.5 pb-2 align-middle whitespace-nowrap">
+                          <td className="border-r border-black px-2 py-1 align-top break-words leading-tight">
                             Section: {model.section || ""}
                           </td>
-                          <td className="px-2 pt-1.5 pb-2 align-middle" colSpan={2}>
+                          <td className="px-2 py-1 align-top">
                             FPP: {model.fpp || ""}
                           </td>
                         </tr>
@@ -234,7 +238,7 @@ export function PrTemplatePreview({
                         <col style={{ width: "85px" }} />
                       </colgroup>
                       <thead>
-                        <tr className="border-b border-black text-[11.5px] font-bold text-center bg-[#f1f5f9]">
+                        <tr className="border-b border-black text-[11.5px] font-bold text-center bg-white">
                           <th className="border-r border-black pt-1.5 pb-2 px-1 font-bold text-center align-middle">Item No.</th>
                           <th className="border-r border-black pt-1.5 pb-2 px-1 font-bold text-center align-middle">Unit</th>
                           <th className="border-r border-black pt-1.5 pb-2 px-2 font-bold text-center align-middle">Item Description</th>
@@ -253,12 +257,12 @@ export function PrTemplatePreview({
                           const rowHasUnit = row ? Boolean(String(row.unit || "").trim()) : false
                           const rowTotal = row ? computeItemTotal(row) : 0
 
+                          const countWithUnitOnCurrentPage = pageItems
+                            .slice(0, pageItemIndex + 1)
+                            .filter((it) => Boolean(String(it?.unit || "").trim())).length
+
                           const autoItemNo = rowHasUnit
-                            ? String(
-                              pageItems
-                                .slice(0, pageItemIndex + 1)
-                                .filter((it) => String(it.unit || "").trim()).length,
-                            )
+                            ? String(prevItemsWithUnitCount + countWithUnitOnCurrentPage)
                             : ""
 
                           const displayItemNo = isTotalRow || isCarryRow || !rowHasUnit ? "" : autoItemNo
@@ -285,7 +289,7 @@ export function PrTemplatePreview({
 
                           if (isTotalRow) {
                             return (
-                              <tr key={rowIndex} className="border-b border-black last:border-b-0 bg-[#f8fafc] font-bold">
+                              <tr key={rowIndex} className="border-b border-black last:border-b-0 bg-white font-bold">
                                 <td className="border-r border-black px-1 py-1 text-center font-mono align-middle text-[10.5px]">&nbsp;</td>
                                 <td className="border-r border-black px-1 py-1 text-center align-middle text-[10.5px]">&nbsp;</td>
                                 <td className="border-r border-black px-2 py-1 text-center font-bold text-[12px] align-middle tracking-wider uppercase">
@@ -349,7 +353,7 @@ export function PrTemplatePreview({
                       </colgroup>
                       <tbody>
                         {/* Row 1: Signature space — left empty, headers at top of right cells */}
-                        <tr style={{ height: "85px" }}>
+                        <tr style={{ height: "80px" }}>
                           <td
                             className="border-r border-black px-1 text-[10.5px] text-left"
                             style={{ verticalAlign: "top" }}
@@ -378,33 +382,36 @@ export function PrTemplatePreview({
                         {/* Row 2: Labels on left + Names + Designations on right */}
                         <tr>
                           <td
-                            className="border-r border-black px-1 text-[10.5px] text-left"
-                            style={{ verticalAlign: "top", paddingTop: "3px" }}
+                            className="border-r border-black px-1.5 text-[10px] text-left leading-tight"
+                            style={{ verticalAlign: "top", paddingTop: "2px", paddingBottom: "4px" }}
                           >
-                            <div>Signature:</div>
-                            <div>Printed Name:</div>
-                            <div>Designation:</div>
+                            <div className="leading-tight">Signature:</div>
+                            <div className="leading-tight mt-0.5">Printed Name:</div>
+                            <div className="leading-tight mt-0.5">Designation:</div>
                           </td>
                           <td
                             className="border-r border-black px-1 text-center"
-                            style={{ verticalAlign: "top", paddingTop: "3px" }}
+                            style={{ verticalAlign: "top", paddingTop: "2px", paddingBottom: "4px" }}
                           >
-                            <div className="font-bold text-[11px]">{model.requestedByName || "\u00A0"}</div>
-                            <div className="text-[10px]">{model.requestedByDesignation || "\u00A0"}</div>
+                            <div className="text-[10px] leading-tight">&nbsp;</div>
+                            <div className="font-bold text-[10.5px] leading-tight mt-0.5">{model.requestedByName || "\u00A0"}</div>
+                            <div className="text-[9.5px] leading-tight mt-0.5">{model.requestedByDesignation || "\u00A0"}</div>
                           </td>
                           <td
                             className="border-r border-black px-1 text-center"
-                            style={{ verticalAlign: "top", paddingTop: "3px" }}
+                            style={{ verticalAlign: "top", paddingTop: "2px", paddingBottom: "4px" }}
                           >
-                            <div className="font-bold text-[11px]">{String(model.cashAvailabilityName || "").trim() || "ALICIA R. MAGPANTAY"}</div>
-                            <div className="text-[10px]">{String(model.cashAvailabilityDesignation || "").trim() || "Provincial Treasurer"}</div>
+                            <div className="text-[10px] leading-tight">&nbsp;</div>
+                            <div className="font-bold text-[10.5px] leading-tight mt-0.5">{String(model.cashAvailabilityName || "").trim() || "ALICIA R. MAGPANTAY"}</div>
+                            <div className="text-[9.5px] leading-tight mt-0.5">{String(model.cashAvailabilityDesignation || "").trim() || "Provincial Treasurer"}</div>
                           </td>
                           <td
                             className="px-1 text-center"
-                            style={{ verticalAlign: "top", paddingTop: "3px" }}
+                            style={{ verticalAlign: "top", paddingTop: "2px", paddingBottom: "4px" }}
                           >
-                            <div className="font-bold text-[11px]">{String(model.approvedByName || "").trim() || "JOSE ENRIQUE S. GARCIA III"}</div>
-                            <div className="text-[10px]">{String(model.approvedByDesignation || "").trim() || "Provincial Governor"}</div>
+                            <div className="text-[10px] leading-tight">&nbsp;</div>
+                            <div className="font-bold text-[10.5px] leading-tight mt-0.5">{String(model.approvedByName || "").trim() || "JOSE ENRIQUE S. GARCIA III"}</div>
+                            <div className="text-[9.5px] leading-tight mt-0.5">{String(model.approvedByDesignation || "").trim() || "Provincial Governor"}</div>
                           </td>
                         </tr>
                       </tbody>

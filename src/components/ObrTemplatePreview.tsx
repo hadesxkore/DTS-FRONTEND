@@ -158,11 +158,11 @@ export default function ObrTemplatePreview({ model, className }: ObrTemplatePrev
             <div className="mt-1 border border-black flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 flex flex-col">
                 {/* Title and OBR No */}
-                <div className="grid grid-cols-[1fr_220px] h-9 border-b-2 border-black">
-                  <div className="flex items-center justify-center font-bold text-[20px] tracking-wide uppercase text-black">
+                <div className="grid grid-cols-[1fr_220px] h-10 border-b-2 border-black">
+                  <div className="flex items-center justify-center font-bold text-[18px] tracking-wide uppercase text-black relative -top-1">
                     OBLIGATION REQUEST
                   </div>
-                  <div className="flex items-center px-3 text-[17px] border-l-2 border-black font-semibold text-black">
+                  <div className="flex items-center px-3 text-[16px] border-l-2 border-black font-semibold text-black relative -top-1">
                     <span>No. {obrPrefix}</span>
                     {obrSuffix ? (
                       <span className="text-blue-600 font-bold ml-1.5">{obrSuffix}</span>
@@ -215,12 +215,12 @@ export default function ObrTemplatePreview({ model, className }: ObrTemplatePrev
                 </div>
 
                 {/* Total Row */}
-                <div className="grid grid-cols-[120px_1fr_80px_120px_110px] h-8 border-b-2 border-black">
+                <div className="grid grid-cols-[120px_1fr_80px_120px_110px] h-9 border-b-2 border-black">
                   <div className="col-span-3" />
-                  <div className="border-r border-black flex items-center justify-end px-2 font-bold text-[14px] leading-none">
+                  <div className="border-r border-black flex items-center justify-end px-2 font-bold text-[14px] leading-none relative -top-1">
                     Total
                   </div>
-                  <div className="p-1 text-[14px] font-bold tabular-nums text-center flex items-center justify-center whitespace-nowrap leading-none">
+                  <div className="p-1 text-[14px] font-bold tabular-nums text-center flex items-center justify-center whitespace-nowrap leading-none relative -top-1">
                     {totalAmountText}
                   </div>
                 </div>
@@ -229,9 +229,9 @@ export default function ObrTemplatePreview({ model, className }: ObrTemplatePrev
                 <div className="grid grid-cols-2 border-b-2 border-black min-h-[110px]">
                   {/* Box A */}
                   <div className="border-r-2 border-black p-2.5 flex flex-col justify-between pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="border-2 border-black w-6 h-6 flex items-center justify-center text-[13px] font-bold shrink-0 leading-none">
-                        A.
+                    <div className="flex items-center gap-2 relative -top-0.5">
+                      <div className="border-2 border-black w-6 h-6 flex items-center justify-center text-[12px] font-bold shrink-0">
+                        <span className="relative -top-[1.5px]">A.</span>
                       </div>
                       <div className="font-bold text-[15px] leading-none">Certified</div>
                     </div>
@@ -258,9 +258,9 @@ export default function ObrTemplatePreview({ model, className }: ObrTemplatePrev
 
                   {/* Box B */}
                   <div className="p-2.5 flex flex-col justify-start pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="border-2 border-black w-6 h-6 flex items-center justify-center text-[13px] font-bold shrink-0 leading-none">
-                        B.
+                    <div className="flex items-center gap-2 relative -top-0.5">
+                      <div className="border-2 border-black w-6 h-6 flex items-center justify-center text-[12px] font-bold shrink-0">
+                        <span className="relative -top-[1.5px]">B.</span>
                       </div>
                       <div className="font-bold text-[15px] leading-none">Certified</div>
                     </div>

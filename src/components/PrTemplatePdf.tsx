@@ -256,6 +256,10 @@ export default function PrTemplatePdf({ model }: { model: PrTemplateModel }) {
         const pageSubTotal = pageItems.reduce((sum, it) => sum + computeItemTotal(it), 0)
         const isLastPage = pageIndex === pageCount - 1
 
+        const prevItemsWithUnitCount = pages
+          .slice(0, pageIndex)
+          .reduce((sum, pg) => sum + pg.filter((it) => Boolean(String(it?.unit || "").trim())).length, 0)
+
         const itemRowCount = 27
         const totalRowIndex = itemRowCount
 
@@ -344,7 +348,7 @@ export default function PrTemplatePdf({ model }: { model: PrTemplateModel }) {
                         .slice(0, pageItemIndex + 1)
                         .filter((it) => String(it.unit || "").trim()).length
 
-                      return String(countWithUnitUpToRow)
+                      return String(prevItemsWithUnitCount + countWithUnitUpToRow)
                     })()
 
                     const unit = isTotalRow || isCarryRow ? "" : String(row?.unit || "")
