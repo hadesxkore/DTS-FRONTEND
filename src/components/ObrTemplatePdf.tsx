@@ -1,6 +1,24 @@
 import type { ObrTemplateModel } from "./ObrTemplatePreview"
 import { Document, Page, StyleSheet, Text, View, Image } from "@react-pdf/renderer"
 
+// Format: "First Name - Office" (e.g. "Peter Carlos - PGO")
+function formatPreparedByLabel(name: string, office: string): string {
+  if (!name || name === "System Administrator") return name
+  const commaIdx = name.indexOf(",")
+  let firstName = ""
+  if (commaIdx !== -1) {
+    const afterComma = name.slice(commaIdx + 1).trim()
+    const parts = afterComma.split(/\s+/).filter(Boolean)
+    firstName = parts.slice(0, 2).join(" ")
+  } else {
+    const parts = name.split(/\s+/).filter(Boolean)
+    firstName = parts.slice(0, 2).join(" ")
+  }
+  firstName = firstName.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  const officeLabel = String(office || "").trim()
+  return officeLabel ? `${firstName} - ${officeLabel}` : firstName
+}
+
 const styles = StyleSheet.create({
     page: {
         paddingTop: 12,
@@ -655,7 +673,7 @@ export default function ObrTemplatePdf({ model }: { model: ObrTemplateModel }) {
                     {/* Footer */}
                     <View style={styles.footerRow}>
                         <Text style={styles.footerText}>
-                            Prepared by: {model.preparedByName ? <Text style={styles.footerName}>{model.preparedByName}</Text> : "____________________"}
+                            Prepared by: {model.preparedByName ? <Text style={styles.footerName}>{formatPreparedByLabel(model.preparedByName, model.office)}</Text> : "____________________"}
                         </Text>
                     </View>
                 </View>

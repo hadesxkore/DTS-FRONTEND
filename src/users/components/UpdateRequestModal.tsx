@@ -136,6 +136,25 @@ export default function UpdateRequestModal({
       return ""
     }
   }, [isOpen])
+
+  // Format: "First Name - Office" (e.g. "Peter Carlos - PGO")
+  const formatPreparedByLabel = (name: string, office: string) => {
+    if (!name || name === "System Administrator") return name
+    // Handle "LASTNAME, FIRSTNAME MIDDLE" format
+    const commaIdx = name.indexOf(",")
+    let firstName = ""
+    if (commaIdx !== -1) {
+      const afterComma = name.slice(commaIdx + 1).trim()
+      const parts = afterComma.split(/\s+/).filter(Boolean)
+      firstName = parts.slice(0, 2).join(" ")
+    } else {
+      const parts = name.split(/\s+/).filter(Boolean)
+      firstName = parts.slice(0, 2).join(" ")
+    }
+    firstName = firstName.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+    const officeLabel = String(office || "").trim()
+    return officeLabel ? `${firstName} - ${officeLabel}` : firstName
+  }
   const [deptHeadName, setDeptHeadName] = useState("")
   const [deptHeadDesignation, setDeptHeadDesignation] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -251,8 +270,9 @@ export default function UpdateRequestModal({
     if (!formData.department.trim()) missing.push("Department")
     if (!formData.amount.trim()) missing.push("Amount")
     if (!formData.contactNumber.trim()) missing.push("Created by")
-    if (!formData.responsibilityCenter.trim()) missing.push("Responsibility Center")
-    if (!formData.accountCode.trim()) missing.push("Account Code")
+    // Required only when OBR is enabled
+    if (obrEnabled && !formData.responsibilityCenter.trim()) missing.push("Responsibility Center")
+    if (obrEnabled && !formData.accountCode.trim()) missing.push("Account Code")
     if (!formData.email.trim()) missing.push("Email Address")
     if (!formData.purpose.trim()) missing.push("Purpose")
 
@@ -1767,7 +1787,7 @@ export default function UpdateRequestModal({
                       <div />
                       <div />
                       <div className="pl-1">
-                        Prepared by: {preparedByName ? <span className="underline">{preparedByName}</span> : "____________________"}
+                        Prepared by: {preparedByName ? <span className="underline">{formatPreparedByLabel(preparedByName, formData.department)}</span> : "____________________"}
                       </div>
                     </div>
                   </div>

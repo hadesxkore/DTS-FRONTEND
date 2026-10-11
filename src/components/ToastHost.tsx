@@ -150,7 +150,7 @@ export default function ToastHost() {
 
   return (
     <div
-      className="pointer-events-none fixed right-4 top-4 z-[9999] flex w-full max-w-sm flex-col items-end sm:right-6 sm:top-6"
+      className="pointer-events-none fixed right-4 bottom-4 z-[9999] flex w-full max-w-sm flex-col items-end sm:right-6 sm:bottom-6"
       aria-live="polite"
     >
       {/* Container for the Stack */}
@@ -188,7 +188,7 @@ export default function ToastHost() {
         <div
           className={`relative w-full transition-all duration-300 ease-out ${
             isHovered && totalCount > 1
-              ? "flex flex-col gap-2.5 pt-0"
+              ? "flex flex-col-reverse gap-2.5 pt-0"
               : "h-[160px]"
           }`}
         >
@@ -293,13 +293,13 @@ export default function ToastHost() {
                 }
               : {
                   position: index === 0 ? "relative" : "absolute",
-                  top: 0,
+                  bottom: 0,
                   left: 0,
                   right: 0,
                   transform: t.isDismissing
                     ? "translateX(120%) scale(0.9)"
-                    : `translateY(${translateY}px) scale(${scale})`,
-                  transformOrigin: "top center",
+                    : `translateY(-${translateY}px) scale(${scale})`,
+                  transformOrigin: "bottom center",
                   opacity: t.isDismissing ? 0 : isBeyondStack ? 0 : opacity,
                   zIndex,
                   pointerEvents: index === 0 ? "auto" : "none",

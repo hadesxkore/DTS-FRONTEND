@@ -25,7 +25,23 @@ export type ObrTemplateModel = {
   hasObr?: boolean
 }
 
-
+// Format: "First Name - Office" (e.g. "Peter Carlos - PGO")
+function formatPreparedByLabel(name: string, office: string): string {
+  if (!name || name === "System Administrator") return name
+  const commaIdx = name.indexOf(",")
+  let firstName = ""
+  if (commaIdx !== -1) {
+    const afterComma = name.slice(commaIdx + 1).trim()
+    const parts = afterComma.split(/\s+/).filter(Boolean)
+    firstName = parts.slice(0, 2).join(" ")
+  } else {
+    const parts = name.split(/\s+/).filter(Boolean)
+    firstName = parts.slice(0, 2).join(" ")
+  }
+  firstName = firstName.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  const officeLabel = String(office || "").trim()
+  return officeLabel ? `${firstName} - ${officeLabel}` : firstName
+}
 
 function shouldShowBarcode(model: ObrTemplateModel): boolean {
   const logs = Array.isArray(model.logs) ? model.logs : []
@@ -329,7 +345,7 @@ export default function ObrTemplatePreview({ model, className }: ObrTemplatePrev
             {/* Bottom Footer Subtext */}
             <div className="mt-1 flex items-center justify-end font-sans text-[11px] text-black pr-2">
               <div>
-                Prepared by: {model.preparedByName ? <span className="underline font-semibold">{model.preparedByName}</span> : "____________________"}
+                Prepared by: {model.preparedByName ? <span className="underline font-semibold">{formatPreparedByLabel(model.preparedByName, model.office)}</span> : "____________________"}
               </div>
             </div>
           </div>
